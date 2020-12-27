@@ -143,7 +143,7 @@ func serverRun() {
 	api.GET("/projects", s.getProjectsHandler)
 	api.GET("/project/:name", s.getProjectHandler)
 	api.DELETE("/project/:name", s.deleteProjectHandler)
-	//api.POST("/project/:name/update", s.updateProjectHanlder)
+	api.POST("/project/install", s.installProjectHandler)
 
 	var l net.Listener
 	if httpFD > 0 {
@@ -788,6 +788,39 @@ func (s *server) deleteProjectHandler(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("removed %s", which)})
+}
+
+func (s *server) installProjectHandler(ctx *gin.Context) {
+	srcURL, set := ctx.GetQuery("url")
+	if !set {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("url query arg missing")})
+		return
+	}
+
+	logger.Debugf("install requested for: %s", srcURL)
+
+	parsed, err := url.Parse(srcURL)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("invalid url: %s", err)})
+		return
+	}
+
+	projectDir := s.devicePath("code")
+	projectName := dust.InferProjectNameFromURL(parsed)
+
+	logger.Debugf("inferred project name: %s", projectName)
+
+	err = dust.Install(projectDir, projectName, srcURL, nil)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("install failed: %s", err),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, projectInstallResponse{
+		URL: s.apiPath("project", projectName),
+	})
 }
 
 type devicePathFunc func(name string) string
