@@ -7,7 +7,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -43,14 +45,14 @@ type Project struct {
 	Root string
 }
 
-func downloadURL(url string) (string, error) {
+func downloadURL(u string) (string, error) {
 	f, err := ioutil.TempFile("/tmp", "maiden-")
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
 
-	resp, err := http.Get(url)
+	resp, err := http.Get(u)
 	if err != nil {
 		return "", err
 	}
@@ -180,8 +182,25 @@ func readMetaData(inPath string) *MetaData {
 	return &d
 }
 
+// InferProjectNameFromURL does just that...
+func InferProjectNameFromURL(u *url.URL) string {
+	// now for the super painful fragile heuristic to infer a project name
+	// from the URL being passed in which could be a .zip, .git, online or
+	// offline...
+	host := u.Hostname()
+	if host == "github.com" || host == "gitlab.com" || host == "bitbucket.org" {
+		// ...then the project/repo name is the second element of the path
+		return strings.Split(u.Path, "/")[2]
+	}
+
+	// ...else, try the basename????
+	name := path.Base(u.Path)
+	name = name[0 : len(name)-len(filepath.Ext(name))] // strip any extension
+	return name
+}
+
 // Install installs the project at url if a project with the given name does not already exist in root
-func Install(root, name, url string, entry *catalog.Entry) error {
+func Install(root, name, srcURL string, entry *catalog.Entry) error {
 	path := filepath.Join(root, name)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		return fmt.Errorf("project %s already exists in %s", name, root)
@@ -193,17 +212,28 @@ func Install(root, name, url string, entry *catalog.Entry) error {
 	metadata := MetaData{
 		Header:    projectMetaDataHeader,
 		Installed: time.Now(),
-		SourceURL: url,
+		SourceURL: srcURL,
 		Entry:     entry,
 	}
 
-	if strings.HasSuffix(url, ".zip") {
+	if strings.HasSuffix(srcURL, ".zip") {
+		var archivePath string
+
 		// do zip archive install
-		archivePath, err := downloadURL(url)
+		// if the url appears to be local, short circuit the download
+		parsed, err := url.Parse(srcURL)
 		if err != nil {
 			return err
 		}
-		defer os.Remove(archivePath)
+		if parsed.Scheme == "" || parsed.Scheme == "file" {
+			archivePath = parsed.Path
+		} else {
+			archivePath, err = downloadURL(srcURL)
+			if err != nil {
+				return err
+			}
+			defer os.Remove(archivePath)
+		}
 
 		// TODO: deal with zip archives needing to be renamed or un-nested
 		_, err = Unzip(archivePath, path, true)
@@ -216,7 +246,7 @@ func Install(root, name, url string, entry *catalog.Entry) error {
 
 	// assume url is a git repo, clone it
 	_, err := git.PlainClone(path, false, &git.CloneOptions{
-		URL:               url,
+		URL:               srcURL,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 	})
 	if err != nil {

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"text/tabwriter"
 
@@ -18,7 +19,7 @@ var projectCmd = &cobra.Command{
 }
 
 var listProjectsCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list [names]",
 	Short: "list installed script/project(s)",
 	Run: func(cmd *cobra.Command, args []string) {
 		ConfigureLogger()
@@ -28,7 +29,7 @@ var listProjectsCmd = &cobra.Command{
 }
 
 var installProjectCmd = &cobra.Command{
-	Use:   "install",
+	Use:   "install <names or urls>",
 	Short: "install a script/project",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -39,7 +40,7 @@ var installProjectCmd = &cobra.Command{
 }
 
 var updateProjectCmd = &cobra.Command{
-	Use:   "update",
+	Use:   "update [names]",
 	Short: "update a script/project",
 	// Args:  cobra.,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -61,7 +62,7 @@ var pushProjectCmd = &cobra.Command{
 }
 
 var removeProjectCmd = &cobra.Command{
-	Use:   "remove",
+	Use:   "remove <names>",
 	Short: "remove a project dir",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -149,16 +150,31 @@ func installProjectRun(args []string) {
 
 	// install projects
 	for _, name := range args {
-		if entry := SearchCatalogs(catalogs, name); entry != nil {
-			fmt.Printf("Installing: %s (%s)... ", entry.ProjectName, entry.URL)
-			err := dust.Install(root, name, entry.URL, entry)
-			if err != nil {
-				fmt.Printf("failed: %s\n", err)
-			} else {
-				fmt.Printf("done.\n")
-			}
+		var projectURL string
+		var projectName string
+
+		// first, assume the arg is a project name
+		entry := SearchCatalogs(catalogs, name)
+		if entry != nil {
+			projectURL = entry.URL
+			projectName = entry.ProjectName
 		} else {
-			fmt.Printf("Unknown project: %s\n", name)
+			// not a known project, assume it is a url
+			projectURL = name
+			parsed, err := url.Parse(name)
+			if err != nil {
+				fmt.Printf("invalid project url: %s, skipping\n", name)
+				continue
+			}
+			projectName = dust.InferProjectNameFromURL(parsed)
+		}
+
+		fmt.Printf("Installing: %s (%s)... ", projectName, projectURL)
+		err := dust.Install(root, projectName, projectURL, entry)
+		if err != nil {
+			fmt.Printf("failed: %s\n", err)
+		} else {
+			fmt.Printf("done.\n")
 		}
 	}
 }
