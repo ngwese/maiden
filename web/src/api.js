@@ -94,7 +94,8 @@ class API {
     const origin = document.location.hostname;
     fetch('repl-endpoints.json').then(response => {
       response.json().then(data => {
-        // this is ugly; if hostname is missing from the ws urls for the repls insert the hostname of this document
+        // this is ugly; if hostname is missing from the ws urls for the repls
+        // insert the hostname of this document
         const config = new Map();
         const template = new Map(Object.entries(data));
         template.forEach((value, key) => {
@@ -135,13 +136,17 @@ class API {
   }
 
   static fileFromResource(resource) {
-    // MAINT: this totally breaks the encapsulation of script resources and returns what matron would see as the script path
+    // MAINT: this totally breaks the encapsulation of script resources and
+    // returns what norns (matron) would see as the script path
     const prefix = apiPath('dust/');
     return resource.split(prefix)[1];
   }
 
   static categoryFromResource(resource) {
-    // MAINT: another case of broken encapsulation, explorer sections/category tool actions need to ensure the only operate on stuff in their section but the global selection (activeBuffer) is just a URL. here we do evil stuff like extract information out of the URL
+    // MAINT: another case of broken encapsulation, explorer sections/category
+    // tool actions need to ensure the only operate on stuff in their section
+    // but the global selection (activeBuffer) is just a URL. here we do evil
+    // stuff like extract information out of the URL
     const tail = resource.split(API_ROOT)[1];
     return tail.split('/')[1];
   }

@@ -2,7 +2,7 @@ import { connect } from 'react-redux';
 import { createSelector } from 'reselect';
 import { push as pushHistory } from 'connected-react-router';
 import EditActivity from './edit-activity';
-import { MATRON_COMPONENT, UNTITLED_SCRIPT, USER_DATA_PATH } from './constants';
+import { NORNS_COMPONENT, UNTITLED_SCRIPT, USER_DATA_PATH } from './constants';
 import { nodeForResource } from './model/listing';
 import api, { DUST_CODE_RESOURCE } from './api';
 import { resourceToEditPath } from './url-utils';
@@ -130,17 +130,17 @@ const mapDispatchToProps = dispatch => ({
         return;
       }
       const cmd = `norns.script.load("${file}")`;
-      dispatch(replSend(MATRON_COMPONENT, cmd));
+      dispatch(replSend(NORNS_COMPONENT, cmd));
     } else {
       console.log('resource:', resource, 'cannot be run as a script');
     }
   },
   scriptClear: () => {
     const cmd = 'norns.script.clear()';
-    dispatch(replSend(MATRON_COMPONENT, cmd));
+    dispatch(replSend(NORNS_COMPONENT, cmd));
   },
   selectionEval: code => {
-    dispatch(replSend(MATRON_COMPONENT, code));
+    dispatch(replSend(NORNS_COMPONENT, code));
   },
 
   // ui

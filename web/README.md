@@ -28,35 +28,49 @@ from the `web/` directory within the `maiden` source tree:
 yarn install
 yarn build
 ```
-running `yarn build` will output static, bundled, and minified js, css, and html files suitable for release in the `build` directory. the built results are self contained and do not depend on node or any of the associated react toolchain.
+running `yarn build` will output static, bundled, and minified js, css, and html
+files suitable for release in the `build` directory. the built results are self
+contained and do not depend on node or any of the associated react toolchain.
 
 ## development and testing
 
-running `yarn start` starts a local development server which automatically recompiles (and reloads) the application when a file is saved.
+running `yarn start` starts a local development server which automatically
+recompiles (and reloads) the application when a file is saved.
 
-the development server runs on port 3000 and forwards any unhandled request to the `"proxy"` defined in the `package.json` file. starting the `maiden` server in a separate shell allows api calls to be handled during development.
+the development server runs on port 3000 and forwards any unhandled request to
+the `"proxy"` defined in the `package.json` file. starting the `maiden` server
+in a separate shell allows api calls to be handled during development.
 
-installing both the `reactjs` and `redux` devtools browser extensions is highly recommended. 
+installing both the `reactjs` and `redux` devtools browser extensions is highly
+recommended.
 
 ## repl connection
 
-the `maiden` repl uses websockets to directly connect to the `matron` (lua) and `crone` (supercollider) consoles bypassing the http backend. in order to determine which host/ip and socket to connect to `maiden` reads the `repl-endpoints.json` file (`web/public/repl-endpoints.json`) from the http backend.
+the `maiden` repl uses websockets to directly connect to the `norns` (lua) and
+`supercollider` consoles bypassing the http backend. in order to determine which
+host/ip and socket to connect to `maiden` reads the `repl-endpoints.json` file
+(`web/public/repl-endpoints.json`) from the http backend.
 
-when running both the frontend and backend locally during development it is still possible to make the repl work by locally editing `repl-endpoints.json`, the default configuration looks like:
+when running both the frontend and backend locally during development it is
+still possible to make the repl work by locally editing `repl-endpoints.json`,
+the default configuration looks like:
 
 ```
 {
-    "matron": "ws://maiden_app_location:5555",
-    "sc": "ws://maiden_app_location:5556"
+    "norns": "ws://maiden_app_location:5555",
+    "supercollider": "ws://maiden_app_location:5556"
 }
 ```
 
-the `maiden_app_location` is a special value which causes the frontend to attempt to connect to whichever host/ip `maiden` itself was loaded from. when running the frontend/backend locally, change the config to point specifically a the hostname or ip addr of the norns device. for example:
+the `maiden_app_location` is a special value which causes the frontend to
+attempt to connect to whichever host/ip `maiden` itself was loaded from. when
+running the frontend/backend locally, change the config to point specifically a
+the hostname or ip addr of the norns device. for example:
 
 ```
 {
-    "matron": "ws://norns.local:5555",
-    "sc": "ws://norns.local:5556"
+    "norns": "ws://norns.local:5555",
+    "supercollider": "ws://norns.local:5556"
 }
 ```
 

@@ -25,7 +25,9 @@ class Workspace extends Component {
     // grab the config so that the theming data is available
     this.props.loadEditorConfig();
 
-    // MAINT: this is a bit odd here but we initiate the connections for the repl early so that any actions taken in the editor (or output from matron/crone) is captured even if the repl isn't being displayed
+    // MAINT: this is a bit odd here but we initiate the connections for the
+    // repl early so that any actions taken in the editor (or output from
+    // norns/supercollider) is captured even if the repl isn't being displayed
     this.props.replEndpoints(endpoints => {
       endpoints.forEach((endpoint, component) => {
         this.props.replConnect(component, endpoint);

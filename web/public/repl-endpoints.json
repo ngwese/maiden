@@ -1,4 +1,4 @@
 {
-    "matron": "ws://maiden_app_location:5555",
+    "norns": "ws://maiden_app_location:5555",
     "supercollider": "ws://maiden_app_location:5556"
 }

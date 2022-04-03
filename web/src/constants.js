@@ -2,7 +2,7 @@ import { Set } from 'immutable';
 
 export const UNTITLED_SCRIPT = 'untitled.lua';
 
-export const MATRON_COMPONENT = 'matron';
+export const NORNS_COMPONENT = 'norns';
 export const CRONE_COMPONENT = 'crone';
 
 export const SIDEBAR_COMPONENT = 'sidebar';

@@ -83,7 +83,7 @@ const handleReplSend = (action, state, conn) => {
 
 const initialReplState = {
   scrollbackLimit: 200,
-  activeRepl: 'matron',
+  activeRepl: 'norns',
   endpoints: new Map(),
   connections: new Map(),
   buffers: new Map(),

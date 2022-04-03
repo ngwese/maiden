@@ -48,7 +48,7 @@ func init() {
 
 	serverCmd.Flags().StringVar(&dataDir, "data", "data/", "`path` to user data directory (dust)")
 	serverCmd.Flags().StringVar(&appDir, "app", "app/", "`path` to maiden web app directory")
-	serverCmd.Flags().StringVar(&docDir, "doc", "doc/", "`path` to matron lua docs")
+	serverCmd.Flags().StringVar(&docDir, "doc", "doc/", "`path` to norns lua docs")
 
 	// allow config file values to be overridden by command line
 	viper.BindPFlag("dust.path", serverCmd.Flags().Lookup("data"))

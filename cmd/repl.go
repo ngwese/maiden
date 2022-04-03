@@ -10,7 +10,7 @@ import (
 
 var replCmd = &cobra.Command{
 	Use:   "repl",
-	Short: "matron/crone repl",
+	Short: "norns/sclang repl",
 	Run: func(cmd *cobra.Command, args []string) {
 		ConfigureLogger()
 		replRun(args)
