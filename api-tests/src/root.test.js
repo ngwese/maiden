@@ -7,11 +7,13 @@ describe('root and api info', () => {
     await assertServerReachable();
   });
 
-  it('GET / redirects to /maiden', async () => {
+  it('GET / redirects to /maiden/', async () => {
     const { response, status } = await request('/', { redirect: 'manual' });
     expect(status).toBe(302);
     const location = response.headers.get('location');
-    expect(location).toMatch(/\/maiden$/);
+    // Trailing slash so relative assets (repl-endpoints.json) resolve under /maiden/.
+    expect(location).toMatch(/\/maiden\/?$/);
+    expect(location.endsWith('/')).toBe(true);
   });
 
   it('GET /api/v1 returns api name and version', async () => {

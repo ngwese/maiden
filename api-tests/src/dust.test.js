@@ -63,6 +63,17 @@ describe('dust api', () => {
       const got = await request(`/api/v1/dust/${file}`);
       expect(got.status).toBe(200);
       expect(got.body).toBe(content);
+      // Editor only renders text when Content-Type contains "text" or "application/json".
+      expect(got.headers.get('content-type') || '').toMatch(/text|application\/json/i);
+    });
+
+    it('GET of .lua uses a text Content-Type', async () => {
+      const file = ws.path('script.lua');
+      await writeFile(file, 'print("hi")\n', 'script.lua');
+      const { status, headers, body } = await request(`/api/v1/dust/${file}`);
+      expect(status).toBe(200);
+      expect(body).toBe('print("hi")\n');
+      expect(headers.get('content-type') || '').toMatch(/text/i);
     });
 
     it('PUT with neither kind nor value returns 400', async () => {
