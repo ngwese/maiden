@@ -226,6 +226,11 @@ func (s *server) unitHandler(ctx *gin.Context) {
 			return
 		}
 
+		if loadState, _ := props["LoadState"].(string); loadState == "not-found" {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("unknown unit: %s", name)})
+			return
+		}
+
 		// package status result
 		ctx.JSON(http.StatusOK, gin.H{
 			"state":     props["ActiveState"],
