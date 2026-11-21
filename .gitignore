@@ -8,7 +8,11 @@ vendor/
 # executables
 maiden
 maiden.arm
+maiden-next
 backend/maiden
+backend-next/zig-out/
+backend-next/.zig-cache/
+.zig-cache/
 
 # releases
 dist/

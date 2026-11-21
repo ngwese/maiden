@@ -1,0 +1,13 @@
+.{
+    .name = .maiden,
+    .version = "0.0.0",
+    .fingerprint = 0x1a8aeb1230bf9f96,
+    .minimum_zig_version = "0.17.1",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}
