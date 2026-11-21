@@ -15,7 +15,8 @@ mkdir -pv $REL_DIR
 # maiden
 echo -e "building maiden"
 echo "====================="
-(cd "$REPO_ROOT/backend" && GOOS=linux GOARCH=arm "$REPO_ROOT/tool/go/run.sh" go build -ldflags="${GO_LDFLAGS}" -o "$REPO_ROOT/$REL_DIR/maiden")
+#(cd "$REPO_ROOT/backend" && GOOS=linux GOARCH=arm "$REPO_ROOT/tool/go/run.sh" go build -ldflags="${GO_LDFLAGS}" -o "$REPO_ROOT/$REL_DIR/maiden")
+make build-next-arm
 # for compatibility with old systemd unit setup
 cp -v tool/start.sh $REL_DIR
 cp -v tool/project-setup.sh $REL_DIR
