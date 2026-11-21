@@ -274,7 +274,17 @@ export const directoryReadRecursive = resource => async dispatch => {
 export const bufferSave = (resource, value, cb) => dispatch => {
   dispatch(bufferSaveRequest(resource, value));
   return api.writeTextResource(resource, value, response => {
-    // FIXME: handle errors
+    if (!response.ok) {
+      response
+        .json()
+        .then(data => {
+          dispatch(bufferSaveFailure(resource, data.error || response.statusText));
+        })
+        .catch(() => {
+          dispatch(bufferSaveFailure(resource, response.statusText));
+        });
+      return null;
+    }
     dispatch(bufferSaveSuccess(resource, response.entity));
     return cb ? cb() : null;
   });
