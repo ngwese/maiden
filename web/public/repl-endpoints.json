@@ -1,4 +1,4 @@
 {
-    "norns": "ws://norns.local:5555",
-    "supercollider": "ws://norns.local:5556"
+    "norns": "ws://maiden_app_location:5555",
+    "supercollider": "ws://maiden_app_location:5556"
 }
