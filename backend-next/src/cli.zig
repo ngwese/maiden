@@ -8,6 +8,7 @@ const git = @import("git.zig");
 const Io = std.Io;
 const fsx = @import("fsx.zig");
 
+/// Dispatch `args`, which include argv0. Unknown commands print usage and exit 1.
 pub fn run(allocator: std.mem.Allocator, io: Io, args: []const []const u8) !void {
     fsx.setIo(io);
     var debug = false;

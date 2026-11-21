@@ -1,6 +1,7 @@
 const std = @import("std");
 const cli = @import("cli.zig");
 
+/// Process entry. Installs the filesystem helpers, then runs the CLI.
 pub fn main(init: std.process.Init) !void {
     const gpa = init.gpa;
     const io = init.io;

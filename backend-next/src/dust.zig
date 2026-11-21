@@ -10,6 +10,7 @@ pub const Project = struct {
     name: []const u8,
     root: []const u8,
 
+    /// True when `root/.git` exists and is a directory.
     pub fn isManaged(self: Project) bool {
         var path_buf: [std.fs.max_path_bytes]u8 = undefined;
         const git_dir = std.fmt.bufPrint(&path_buf, "{s}/.git", .{self.root}) catch return false;
@@ -32,12 +33,16 @@ pub const MetaFile = struct {
     catalog_entry: ?catalog.Entry = null,
 };
 
+/// Absolute path of `name` inside `data_dir`. A leading slash is ignored.
+/// `error.BadPath` means `name` contains `..` or a NUL. Caller frees the result.
 pub fn devicePath(allocator: std.mem.Allocator, data_dir: []const u8, name: []const u8) ![]u8 {
     const n = try fsx.relativeInside(name);
     if (n.len == 0) return try allocator.dupe(u8, data_dir);
     return try std.fs.path.join(allocator, &.{ data_dir, n });
 }
 
+/// Join `prefix` and `parts` into a URL path, percent-encoding bytes that are not unreserved.
+/// Caller frees the result.
 pub fn resourcePath(allocator: std.mem.Allocator, prefix: []const u8, parts: []const []const u8) ![]u8 {
     var list: std.ArrayListUnmanaged(u8) = .empty;
     errdefer list.deinit(allocator);
@@ -64,6 +69,8 @@ pub const FileInfo = struct {
     is_dir: bool,
 };
 
+/// List non-hidden entries of `abs_path`, sorted by name, with URLs under `url_prefix`.
+/// Caller frees each `name` and `url`, then the slice.
 pub fn listDir(allocator: std.mem.Allocator, abs_path: []const u8, url_prefix: []const u8) ![]FileInfo {
     var dir = try fsx.openDirIterate(abs_path);
     defer fsx.closeDir(dir);
@@ -98,6 +105,8 @@ fn fileLess(_: void, a: FileInfo, b: FileInfo) bool {
     return std.mem.order(u8, a.name, b.name) == .lt;
 }
 
+/// Non-hidden directories in `code_dir`, sorted by name. Dot-directories are skipped.
+/// Caller frees each `name` and `root`, then the slice.
 pub fn getProjects(allocator: std.mem.Allocator, code_dir: []const u8) ![]Project {
     var dir = try fsx.openDirIterate(code_dir);
     defer fsx.closeDir(dir);
@@ -129,6 +138,7 @@ fn projectLess(_: void, a: Project, b: Project) bool {
     return std.mem.order(u8, a.name, b.name) == .lt;
 }
 
+/// Project whose `name` matches, or null. The result borrows strings from `projects`.
 pub fn searchProjects(projects: []const Project, name: []const u8) ?Project {
     for (projects) |p| {
         if (std.mem.eql(u8, p.name, name)) return p;
@@ -136,6 +146,8 @@ pub fn searchProjects(projects: []const Project, name: []const u8) ?Project {
     return null;
 }
 
+/// Project name inferred from a git or zip URL. The result is a subslice of `u`.
+/// GitHub, GitLab, and Bitbucket URLs use the repository name; other URLs use the basename without its extension.
 pub fn inferProjectNameFromURL(u: []const u8) []const u8 {
     var s = u;
     if (std.mem.indexOfScalar(u8, s, '#')) |i| s = s[0..i];
@@ -162,6 +174,8 @@ pub fn inferProjectNameFromURL(u: []const u8) []const u8 {
     return base;
 }
 
+/// Parse `root/.project`, or null when the file is missing or invalid.
+/// Caller calls `deinit` on the result.
 pub fn readMeta(allocator: std.mem.Allocator, root: []const u8) ?std.json.Parsed(MetaFile) {
     const path = std.fs.path.join(allocator, &.{ root, ".project" }) catch return null;
     defer allocator.free(path);
@@ -243,6 +257,8 @@ fn writeMetaData(allocator: std.mem.Allocator, io: Io, root: []const u8, source_
     fsx.syncParent(path);
 }
 
+/// Rewrite `.project` with `updated_on` set to now. When `entry` is non-null it replaces `catalog_entry`.
+/// Does nothing when the project has no metadata file.
 pub fn noteUpdated(allocator: std.mem.Allocator, io: Io, root: []const u8, entry: ?catalog.Entry) !void {
     const parsed = readMeta(allocator, root) orelse return;
     defer parsed.deinit();
@@ -253,6 +269,9 @@ pub fn noteUpdated(allocator: std.mem.Allocator, io: Io, root: []const u8, entry
     try writeMetaData(allocator, io, root, md.project_url, next_entry, md.installed_on, now);
 }
 
+/// Install `name` under `code_dir` from a `.zip` URL or a git URL.
+/// Returns `error.ProjectExists` when the destination is already present.
+/// On git failure, a bounded stderr copy is appended to `detail`. A failed install deletes the destination.
 pub fn install(
     allocator: std.mem.Allocator,
     io: Io,
@@ -269,6 +288,8 @@ pub fn install(
     try installInto(allocator, io, dest, src_url, entry, detail);
 }
 
+/// Reinstall `name` by building a sibling tree and renaming it into place.
+/// The previous tree is removed only after the new one is complete. Git failures append stderr to `detail`.
 pub fn replaceProject(
     allocator: std.mem.Allocator,
     io: Io,

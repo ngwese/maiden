@@ -32,6 +32,9 @@ fn dbusDown(text: []const u8) bool {
         std.mem.indexOf(u8, text, "System has not been booted") != null;
 }
 
+/// Read `ActiveState` and `SubState` for the systemd unit `name`.
+/// Caller frees both returned strings. `error.NoDbusConnection` means systemctl
+/// cannot reach the bus; `error.UnitNotFound` means `LoadState=not-found`.
 pub fn getStatus(allocator: std.mem.Allocator, io: std.Io, name: []const u8) UnitError!Status {
     const result = try runSystemctl(allocator, io, &.{ "show", name, "--property=LoadState,ActiveState,SubState", "--no-page" });
     defer allocator.free(result.stdout);
@@ -65,9 +68,10 @@ pub fn getStatus(allocator: std.mem.Allocator, io: std.Io, name: []const u8) Uni
     };
 }
 
-/// `systemctl` waits until the job finishes. It does not report the dbus job id,
-/// so a successful wait is reported as job_id 0 and result "done", which is the
-/// result string systemd uses for a completed job.
+/// Run `start`, `stop`, or `restart` on `name` and wait until systemctl exits.
+/// systemctl does not report the dbus job id, so a successful wait corresponds
+/// to job result "done". On failure, a bounded copy of stderr is appended to
+/// `detail` (caller owns those bytes) and `error.SystemctlFailed` is returned.
 pub fn doOperation(allocator: std.mem.Allocator, io: std.Io, name: []const u8, operation: []const u8, detail: *std.ArrayListUnmanaged(u8)) UnitError!void {
     if (!std.mem.eql(u8, operation, "start") and
         !std.mem.eql(u8, operation, "stop") and

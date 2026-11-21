@@ -1,5 +1,6 @@
 const std = @import("std");
 
+/// Build the `maiden` executable. `-Dversion` and `-Dcompile-time` set the strings reported by `version`.
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});

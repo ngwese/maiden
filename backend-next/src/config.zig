@@ -14,6 +14,7 @@ pub const Config = struct {
     doc_path: []u8 = &.{},
     config_used: ?[]u8 = null,
 
+    /// Free every path and list owned by this config.
     pub fn deinit(self: *Config) void {
         for (self.sources.items) |s| self.allocator.free(s);
         self.sources.deinit(self.allocator);
@@ -28,6 +29,8 @@ pub const Config = struct {
     }
 };
 
+/// Replace `$VAR` and `${VAR}` using the process environment. Unknown names expand to empty.
+/// Caller frees the result.
 pub fn expandEnv(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
     var out: std.ArrayListUnmanaged(u8) = .empty;
     errdefer out.deinit(allocator);
@@ -68,6 +71,9 @@ fn setOwned(allocator: std.mem.Allocator, dest: *[]u8, value: []const u8) !void 
     dest.* = next;
 }
 
+/// Load maiden.yaml. `explicit_path` wins; otherwise the search is the working directory,
+/// `$HOME/maiden`, `$HOME/.config/maiden`, then `/etc`. Missing files yield the built-in defaults.
+/// Caller calls `deinit`.
 pub fn load(allocator: std.mem.Allocator, explicit_path: ?[]const u8) !Config {
     var cfg: Config = .{
         .allocator = allocator,
@@ -185,6 +191,9 @@ fn trimYamlValue(s: []const u8) []const u8 {
     return v;
 }
 
+/// Override dust, web, and doc paths from server flags that were actually set.
+/// A null argument leaves the value loaded from yaml or the built-in default.
+/// Also fills `dust_code` when it is still empty.
 pub fn applyServerFlags(cfg: *Config, allocator: std.mem.Allocator, data: ?[]const u8, app: ?[]const u8, doc: ?[]const u8) !void {
     if (data) |d| try setOwned(allocator, &cfg.dust_path, d);
     if (app) |a| try setOwned(allocator, &cfg.web_path, a);
@@ -192,6 +201,7 @@ pub fn applyServerFlags(cfg: *Config, allocator: std.mem.Allocator, data: ?[]con
     try ensureDustCode(cfg, allocator);
 }
 
+/// Set `dust_code` to `dust_path/code` when it is empty.
 pub fn ensureDustCode(cfg: *Config, allocator: std.mem.Allocator) !void {
     if (cfg.dust_code.len != 0) return;
     const joined = try std.fs.path.join(allocator, &.{ cfg.dust_path, "code" });

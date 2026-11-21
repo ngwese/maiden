@@ -16,6 +16,8 @@ pub const Entry = struct {
     version: []const u8 = "",
     origin: []const u8 = "",
 
+    /// std.json hook. Writes the Go catalog entry shape: empty strings are
+    /// omitted except `description`, which is always present. Empty `tags` are omitted.
     pub fn jsonStringify(self: Entry, jw: *std.json.Stringify) !void {
         try jw.beginObject();
         try jw.objectField("project_name");
@@ -36,6 +38,7 @@ pub const Entry = struct {
         try jw.endObject();
     }
 
+    /// Deep copy. The caller owns every string and the `tags` allocation.
     pub fn clone(self: Entry, allocator: std.mem.Allocator) !Entry {
         var tags_copy: ?[]const []const u8 = null;
         if (self.tags) |tags| {
@@ -82,6 +85,7 @@ pub const Catalog = struct {
     fallback_name: []u8,
     mtime_ns: i96,
 
+    /// Free the parsed JSON and the path strings owned by this catalog.
     pub fn deinit(self: *Catalog) void {
         const allocator = self.parsed.arena.child_allocator;
         self.parsed.deinit();
@@ -89,20 +93,25 @@ pub const Catalog = struct {
         allocator.free(self.fallback_name);
     }
 
+    /// Catalog name from the file, or the filename stem when `catalog_name` is empty.
+    /// The slice is borrowed from this catalog.
     pub fn name(self: *const Catalog) []const u8 {
         if (self.parsed.value.catalog_name.len > 0) return self.parsed.value.catalog_name;
         return self.fallback_name;
     }
 
+    /// `date` from the file, or Go's zero `time.Time` string when the field is absent.
     pub fn dateText(self: *const Catalog) []const u8 {
         if (self.parsed.value.date.len > 0) return self.parsed.value.date;
         return "0001-01-01T00:00:00Z";
     }
 
+    /// Project entries. Slices inside each entry are borrowed from this catalog.
     pub fn entries(self: *const Catalog) []const Entry {
         return self.parsed.value.entries;
     }
 
+    /// First entry whose `project_name` matches, or null. The result borrows this catalog.
     pub fn get(self: *const Catalog, project_name: []const u8) ?Entry {
         for (self.entries()) |e| {
             if (std.mem.eql(u8, e.project_name, project_name)) return e;
@@ -116,20 +125,24 @@ pub const Cache = struct {
     mutex: std.Io.Mutex = .init,
     items: std.ArrayListUnmanaged(Catalog) = .empty,
 
+    /// Free every cached catalog. The caller must not hold `lock`.
     pub fn deinit(self: *Cache) void {
         for (self.items.items) |*c| c.deinit();
         self.items.deinit(self.allocator);
     }
 
+    /// Block until this cache can be read or refreshed. Pair with `unlock`.
     pub fn lock(self: *Cache, io: Io) void {
         self.mutex.lockUncancelable(io);
     }
 
+    /// Release the lock taken by `lock`.
     pub fn unlock(self: *Cache, io: Io) void {
         self.mutex.unlock(io);
     }
 
-    /// Caller holds `lock`. Reloads catalogs whose files are newer than the cached copy.
+    /// Reload catalogs whose files are missing or newer than the cached copy.
+    /// Caller holds `lock`. Returns true when the cached set changed.
     pub fn refresh(self: *Cache, cfg: *const config.Config) !bool {
         var changed = false;
         var i: usize = 0;
@@ -178,6 +191,7 @@ pub const Cache = struct {
         return changed;
     }
 
+    /// Catalog with this name, or null. Caller holds `lock`. The pointer is invalid after unlock.
     pub fn findCatalog(self: *const Cache, catalog_name: []const u8) ?*const Catalog {
         for (self.items.items) |*c| {
             if (std.mem.eql(u8, c.name(), catalog_name)) return c;
@@ -185,6 +199,8 @@ pub const Cache = struct {
         return null;
     }
 
+    /// First matching project across cached catalogs. Caller holds `lock`.
+    /// Entry slices are invalid after the catalog is reloaded or the cache is freed.
     pub fn findEntry(self: *const Cache, project_name: []const u8) ?Entry {
         for (self.items.items) |*c| {
             if (c.get(project_name)) |e| return e;
@@ -200,6 +216,8 @@ fn findByPath(self: *Cache, path: []const u8) ?usize {
     return null;
 }
 
+/// Parse one catalog JSON file. Caller owns the result and must `deinit` it.
+/// `mtime_ns` is stored so a cache can skip unchanged files.
 pub fn loadCatalogFile(allocator: std.mem.Allocator, path: []const u8, mtime_ns: i96) !Catalog {
     const data = try fsx.readFileAlloc(allocator, path, 16 * 1024 * 1024);
     defer allocator.free(data);
@@ -215,6 +233,8 @@ pub fn loadCatalogFile(allocator: std.mem.Allocator, path: []const u8, mtime_ns:
     };
 }
 
+/// Load every catalog matched by `cfg.catalogs`, sorted by path.
+/// A file that fails to parse is skipped. Caller `deinit`s each catalog, then frees the slice.
 pub fn loadCatalogs(allocator: std.mem.Allocator, cfg: *const config.Config) ![]Catalog {
     var catalogs: std.ArrayListUnmanaged(Catalog) = .empty;
     errdefer {
@@ -264,23 +284,29 @@ const Parameters = struct {
 pub const Source = struct {
     parsed: std.json.Parsed(SourceFile),
 
+    /// Free the parsed source file.
     pub fn deinit(self: *Source) void {
         self.parsed.deinit();
     }
 
+    /// Source name. Borrowed from the parsed file.
     pub fn name(self: Source) []const u8 {
         return self.parsed.value.source.name;
     }
 
+    /// Retrieval method, such as `"download"`. Borrowed from the parsed file.
     pub fn method(self: Source) []const u8 {
         return self.parsed.value.source.method;
     }
 
+    /// Download URL from `parameters.url`. Borrowed from the parsed file; empty when unset.
     pub fn url(self: Source) []const u8 {
         return self.parsed.value.source.parameters.url;
     }
 };
 
+/// Load every catalog source matched by `cfg.sources`.
+/// A file that fails to parse is skipped. Caller `deinit`s each source, then frees the slice.
 pub fn loadSources(allocator: std.mem.Allocator, cfg: *const config.Config) ![]Source {
     var sources: std.ArrayListUnmanaged(Source) = .empty;
     errdefer {
@@ -312,6 +338,7 @@ fn loadSourceFile(allocator: std.mem.Allocator, path: []const u8) !Source {
     };
 }
 
+/// First entry named `name` in `catalogs`. The result borrows the matching catalog.
 pub fn searchCatalogs(catalogs: []const Catalog, name: []const u8) ?Entry {
     for (catalogs) |*c| {
         if (c.get(name)) |e| return e;
@@ -319,6 +346,7 @@ pub fn searchCatalogs(catalogs: []const Catalog, name: []const u8) ?Entry {
     return null;
 }
 
+/// JSON for a new empty script catalog named `name`. Caller frees the result.
 pub fn emptyCatalogJson(name: []const u8, allocator: std.mem.Allocator) ![]u8 {
     return try std.fmt.allocPrint(allocator,
         \\{{
@@ -336,7 +364,8 @@ pub fn emptyCatalogJson(name: []const u8, allocator: std.mem.Allocator) ![]u8 {
 var download_seq: std.atomic.Value(u32) = .init(0);
 
 /// Download `url` to a temporary sibling, fsync it, then rename over `output_path`.
-/// A failed transfer leaves the previous file in place.
+/// A failed transfer leaves the previous file in place and appends a bounded
+/// copy of curl's stderr to `detail`.
 pub fn downloadToFile(allocator: std.mem.Allocator, io: Io, url: []const u8, output_path: []const u8, detail: *std.ArrayListUnmanaged(u8)) !void {
     log.debug("downloading: {s}", .{url});
     if (std.fs.path.dirname(output_path)) |dir| {

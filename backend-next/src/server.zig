@@ -38,6 +38,8 @@ const Shared = struct {
     }
 };
 
+/// Build version, with the compile timestamp appended when one was provided.
+/// The result is a comptime string.
 pub fn versionString() []const u8 {
     if (build_options.compile_time.len > 0) {
         return build_options.version ++ " / " ++ build_options.compile_time;
@@ -45,6 +47,7 @@ pub fn versionString() []const u8 {
     return build_options.version;
 }
 
+/// Serve HTTP until the process exits. Listens on `opts.port`, or on `opts.fd` when it is non-zero.
 pub fn run(opts: Options) !void {
     const io = opts.io;
     var shared = Shared{
@@ -136,6 +139,8 @@ fn backgroundCatalogUpdate(shared: *Shared) void {
     }
 }
 
+/// Download each configured catalog source once. Used by `maiden catalog update`.
+/// Does not start the retry loop the server runs in the background.
 pub fn updateCatalogs(allocator: std.mem.Allocator, io: Io, cfg: *config.Config) !void {
     try updateConfiguredCatalogs(allocator, io, cfg);
 }

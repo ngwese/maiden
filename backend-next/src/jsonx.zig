@@ -4,6 +4,7 @@ pub const omit_null: std.json.Stringify.Options = .{
     .emit_null_optional_fields = false,
 };
 
+/// Encode `value` as JSON with `options`. Caller frees the result.
 pub fn stringify(allocator: std.mem.Allocator, value: anytype, options: std.json.Stringify.Options) ![]u8 {
     var out: std.Io.Writer.Allocating = .init(allocator);
     errdefer out.deinit();
@@ -12,6 +13,7 @@ pub fn stringify(allocator: std.mem.Allocator, value: anytype, options: std.json
     return try out.toOwnedSlice();
 }
 
+/// `stringify` with null optional fields omitted. Caller frees the result.
 pub fn stringifyOmitNull(allocator: std.mem.Allocator, value: anytype) ![]u8 {
     return stringify(allocator, value, omit_null);
 }

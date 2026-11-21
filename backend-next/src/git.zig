@@ -22,6 +22,8 @@ fn runCaptured(allocator: std.mem.Allocator, io: std.Io, argv: []const []const u
     });
 }
 
+/// `git clone --recurse-submodules` of `url` into `dest`.
+/// On failure, appends a bounded copy of git's output to `detail` and returns `error.GitFailed`.
 pub fn clone(allocator: std.mem.Allocator, io: std.Io, url: []const u8, dest: []const u8, detail: *std.ArrayListUnmanaged(u8)) !void {
     const git_bin = try fsx.gitExecutable();
     const argv = [_][]const u8{ git_bin, "clone", "--quiet", "--recurse-submodules", url, dest };
@@ -36,6 +38,8 @@ pub fn clone(allocator: std.mem.Allocator, io: std.Io, url: []const u8, dest: []
     }
 }
 
+/// `git pull` in `repo`. `.failed` owns its message; the caller frees it.
+/// "Already up to date" is `.up_to_date` even when git exits non-zero.
 pub fn pull(allocator: std.mem.Allocator, io: std.Io, repo: []const u8) !Pull {
     const git_bin = try fsx.gitExecutable();
     const argv = [_][]const u8{ git_bin, "-C", repo, "pull", "--quiet", "--recurse-submodules" };
@@ -55,6 +59,7 @@ pub fn pull(allocator: std.mem.Allocator, io: std.Io, repo: []const u8) !Pull {
     return .updated;
 }
 
+/// `git push` in `repo`. Returns `error.GitFailed` when git exits non-zero.
 pub fn push(allocator: std.mem.Allocator, io: std.Io, repo: []const u8) !void {
     const git_bin = try fsx.gitExecutable();
     const argv = [_][]const u8{ git_bin, "-C", repo, "push", "--quiet" };
@@ -67,6 +72,7 @@ pub fn push(allocator: std.mem.Allocator, io: std.Io, repo: []const u8) !void {
     }
 }
 
+/// Abbreviated HEAD commit of `repo`, without the trailing newline. Caller frees the result.
 pub fn shortHead(allocator: std.mem.Allocator, io: std.Io, repo: []const u8) ![]u8 {
     const git_bin = try fsx.gitExecutable();
     const argv = [_][]const u8{ git_bin, "-C", repo, "rev-parse", "--short", "HEAD" };
