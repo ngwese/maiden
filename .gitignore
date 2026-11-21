@@ -28,6 +28,7 @@ web/yarn.lock
 # node modules
 node_modules/
 web/node_modules/
+api-tests/node_modules/
 
 # build tools
 tool/node/.nvmrc
