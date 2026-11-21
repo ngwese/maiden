@@ -51,6 +51,6 @@ To test with development versions of both the frontend and backend, use this wor
 * enable wifi on norns
 * create a local copy of the norns home dir, or use `sshfs` to mount the `we` home directory locally - `sshfs we@norns.local: ~/norns`
 * build the frontend with `cd web; yarn install; yarn build`
-* start the backend locally with `./tool/go/run.sh go build && ./maiden server --app web/build/ --data ~/norns/dust --doc ~/norns/norns/doc --debug`. The backend will serve the precompiled frontend at http://localhost:5000.
+* start the backend locally with `(cd backend && ../tool/go/run.sh go build -o ../maiden) && ./maiden server --app web/build/ --data ~/norns/dust --doc ~/norns/norns/doc --debug`. The backend will serve the precompiled frontend at http://localhost:5000.
 * (optional) start the hot-reload development server with `cd web; yarn start_local`. The development frontend will run at http://localhost:5001.
 * (optional) if you want to also run the norns and supercollider processes locally, edit `web/public/repl-endpoints.js` to point to local addresses.

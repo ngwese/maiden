@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "https://raw.githubusercontent.com/monome/maiden/master/pkg/catalog/source.schema.json",
+    "$id": "https://raw.githubusercontent.com/monome/maiden/master/backend/pkg/catalog/source.schema.json",
     "title": "maiden catalog source file",
     "description": "details of maiden catalog to download",
     "type": "object",

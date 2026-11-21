@@ -37,8 +37,11 @@ if you prefer to build manually:
 
 #### backend
 
+from the `backend/` directory in the `maiden` source tree:
+
 ```bash
-./tool/go/run.sh go build -ldflags="-X github.com/monome/maiden/cmd.version=$(git describe --tags) -X github.com/monome/maiden/cmd.compileTime=$(date -u +%Y-%m-%dT%H:%M)"
+cd backend
+../tool/go/run.sh go build -ldflags="-X github.com/monome/maiden/cmd.version=$(git describe --tags) -X github.com/monome/maiden/cmd.compileTime=$(date -u +%Y-%m-%dT%H:%M)" -o ../maiden
 ```
 
 #### frontend (ui)
@@ -59,7 +62,8 @@ running `../tool/node/run.sh yarn build` will output static, bundled, and minifi
 if developing on a linux or macos it is trivial to cross compile for arm (raspberry pi):
 
 ```bash
-GOOS=linux GOARCH=arm ./tool/go/run.sh go build -ldflags="${GO_LDFLAGS}" -o dist/maiden/maiden
+cd backend
+GOOS=linux GOARCH=arm ../tool/go/run.sh go build -ldflags="${GO_LDFLAGS}" -o ../dist/maiden/maiden
 ```
 
 **note:** the release target in `tool/release.sh` automatically builds for linux arm.
@@ -78,7 +82,9 @@ for development with the built-in toolchain:
 
 ```bash
 # build backend
-./tool/go/run.sh go build
+cd backend
+../tool/go/run.sh go build -o ../maiden
+cd ..
 
 # build frontend
 cd web
@@ -89,6 +95,7 @@ cd web
 # run backend in a separate shell
 ./maiden server --debug --app web/build/ --data ~/dust
 ```
+
 
 ## known compatible versions
 

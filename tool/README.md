@@ -17,9 +17,11 @@ no manual setup needed. the `tool/*/run.sh` scripts will:
 ### go
 
 ```bash
-./tool/go/run.sh go build
-./tool/go/run.sh go test
+cd backend
+../tool/go/run.sh go build -o ../maiden
+../tool/go/run.sh go test
 ```
+
 
 ### make
 

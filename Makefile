@@ -5,23 +5,23 @@ GO_LDFLAGS += -X github.com/monome/maiden/cmd.compileTime=$(shell date -u +%Y-%m
 export GO_LDFLAGS
 
 build:
-	./tool/go/run.sh go build -ldflags="${GO_LDFLAGS}"
+	cd backend && ../tool/go/run.sh go build -ldflags="${GO_LDFLAGS}" -o ../maiden
 
 test:
-	./tool/go/run.sh go test .
-	./tool/go/run.sh go test ./cmd/...
-	cd pkg/catalog && ../../tool/go/run.sh go test ./...
-	cd pkg/dust && ../../tool/go/run.sh go test ./...
+	cd backend && ../tool/go/run.sh go test .
+	cd backend && ../tool/go/run.sh go test ./cmd/...
+	cd backend/pkg/catalog && ../../../tool/go/run.sh go test ./...
+	cd backend/pkg/dust && ../../../tool/go/run.sh go test ./...
 
 release:
 	./tool/release.sh
 
 release-local:
-	./tool/go/run.sh go build -ldflags="${GO_LDFLAGS}"
+	cd backend && ../tool/go/run.sh go build -ldflags="${GO_LDFLAGS}" -o ../maiden
 
 clean:
 	rm -rf dist
-	rm -f maiden maiden.arm
+	rm -f maiden maiden.arm backend/maiden
 	rm -rf web/build
 
 clean-tools:

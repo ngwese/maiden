@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "$id": "https://raw.githubusercontent.com/monome/maiden/master/pkg/catalog/catalog.schema.json",
+    "$id": "https://raw.githubusercontent.com/monome/maiden/master/backend/pkg/catalog/catalog.schema.json",
     "title": "maiden catalog",
     "description": "listing of maiden projects",
     "type": "object",
