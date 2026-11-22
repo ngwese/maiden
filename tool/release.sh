@@ -16,10 +16,9 @@ mkdir -pv $REL_DIR
 echo -e "\nbuilding maiden"
 echo "====================="
 make backend-arm
-# for compatibility with old systemd unit setup
-cp -v tool/start.sh $REL_DIR
 cp -v tool/project-setup.sh $REL_DIR
 cp -v maiden.yaml $REL_DIR
+
 
 # sources
 mkdir -pv $REL_DIR/dist/sources/

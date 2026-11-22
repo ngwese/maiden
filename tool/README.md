@@ -3,8 +3,8 @@
 scripts used for packaging and device setup:
 
 - `release.sh` - build linux arm release tarball (`make release`)
-- `start.sh` - systemd-compatible launcher copied into the release
 - `project-setup.sh` - copy sources/catalogs into `~/dust` on device
+
 
 ## usage
 
