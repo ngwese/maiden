@@ -1,10 +1,10 @@
-# maiden keybindings
+# maiden app keybindings
 
 ## editor
 
-maiden uses an embedded [ace editor](https://ace.c9.io/) and supports its default keybindings. 
-a full list of default shortcuts can be found on the 
-[ace wiki](https://github.com/ajaxorg/ace/wiki/Default-Keyboard-Shortcuts).  
+maiden uses an embedded [ace editor](https://ace.c9.io/) and supports its
+default keybindings. a full list of default shortcuts can be found on the [ace
+wiki](https://github.com/ajaxorg/ace/wiki/Default-Keyboard-Shortcuts).
 
 a few useful ones include:
 
@@ -18,7 +18,7 @@ a few useful ones include:
 | shift+tab | shift+tab | outdent |
 | ctrl+space | ctrl+space | see code completions, snippets |
 
-(note that these require the editor pane to have focus).   
+(note that these require the editor pane to have focus).
 
 vim and emacs modes are also supported (enabled via the configuration page).
 
