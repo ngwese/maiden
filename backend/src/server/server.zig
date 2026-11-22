@@ -281,11 +281,21 @@ fn respond(request: *http.Server.Request, status: http.Status, body: []const u8,
 }
 
 fn respondJson(request: *http.Server.Request, status: http.Status, body: []const u8) !void {
+    try respondJsonWithHeaders(request, status, body, &.{});
+}
+
+fn respondJsonWithHeaders(
+    request: *http.Server.Request,
+    status: http.Status,
+    body: []const u8,
+    extra: []const http.Header,
+) !void {
+    var headers: [8]http.Header = undefined;
+    headers[0] = .{ .name = "Content-Type", .value = "application/json; charset=utf-8" };
+    @memcpy(headers[1..][0..extra.len], extra);
     try request.respond(body, .{
         .status = status,
-        .extra_headers = &.{
-            .{ .name = "Content-Type", .value = "application/json; charset=utf-8" },
-        },
+        .extra_headers = headers[0 .. 1 + extra.len],
     });
 }
 
@@ -294,12 +304,113 @@ fn respondValue(request: *http.Server.Request, arena: std.mem.Allocator, status:
     try respondJson(request, status, body);
 }
 
+fn respondValueWithHeaders(
+    request: *http.Server.Request,
+    arena: std.mem.Allocator,
+    status: http.Status,
+    value: anytype,
+    extra: []const http.Header,
+) !void {
+    const body = try jsonx.stringifyOmitNull(arena, value);
+    try respondJsonWithHeaders(request, status, body, extra);
+}
+
 fn respondErr(request: *http.Server.Request, arena: std.mem.Allocator, status: http.Status, message: []const u8) !void {
     try respondValue(request, arena, status, .{ .@"error" = message });
 }
 
 fn respondMsg(request: *http.Server.Request, arena: std.mem.Allocator, status: http.Status, message: []const u8) !void {
     try respondValue(request, arena, status, .{ .message = message });
+}
+
+const http_date_len = "Sun, 06 Nov 1994 08:49:37 GMT".len;
+
+const weekday_names = [_][]const u8{ "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+const month_names = [_][]const u8{ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+fn formatHttpDate(buf: *[http_date_len]u8, secs: i64) []const u8 {
+    const epoch = std.time.epoch;
+    const unsigned: u64 = if (secs < 0) 0 else @intCast(secs);
+    const es = epoch.EpochSeconds{ .secs = unsigned };
+    const ed = es.getEpochDay();
+    const yd = ed.calculateYearDay();
+    const md = yd.calculateMonthDay();
+    const ds = es.getDaySeconds();
+    // 1970-01-01 was Thursday; weekday_names[0] is Sunday.
+    const weekday = @as(usize, @intCast((ed.day + 4) % 7));
+    const month = @as(usize, @intCast(md.month.numeric() - 1));
+    return std.fmt.bufPrint(buf, "{s}, {d:0>2} {s} {d:0>4} {d:0>2}:{d:0>2}:{d:0>2} GMT", .{
+        weekday_names[weekday],
+        md.day_index + 1,
+        month_names[month],
+        yd.year,
+        ds.getHoursIntoDay(),
+        ds.getMinutesIntoHour(),
+        ds.getSecondsIntoMinute(),
+    }) catch unreachable;
+}
+
+fn formatHttpDateFromStat(buf: *[http_date_len]u8, st: std.Io.File.Stat) []const u8 {
+    return formatHttpDate(buf, st.mtime.toSeconds());
+}
+
+fn parseMonthName(name: []const u8) ?u4 {
+    for (month_names, 0..) |m, i| {
+        if (std.ascii.eqlIgnoreCase(m, name)) return @intCast(i + 1);
+    }
+    return null;
+}
+
+/// Parse IMF-fix HTTP-date (`Sun, 06 Nov 1994 08:49:37 GMT`) to Unix seconds.
+fn parseHttpDate(value: []const u8) ?i64 {
+    const v = std.mem.trim(u8, value, " \t");
+    if (v.len < http_date_len) return null;
+    // Skip weekday and comma+space: "Sun, "
+    if (v.len < 5 or v[3] != ',' or v[4] != ' ') return null;
+    const day = std.fmt.parseInt(u8, v[5..7], 10) catch return null;
+    if (v[7] != ' ') return null;
+    const month = parseMonthName(v[8..11]) orelse return null;
+    if (v[11] != ' ') return null;
+    const year = std.fmt.parseInt(u16, v[12..16], 10) catch return null;
+    if (v[16] != ' ') return null;
+    const hour = std.fmt.parseInt(u8, v[17..19], 10) catch return null;
+    if (v[19] != ':') return null;
+    const minute = std.fmt.parseInt(u8, v[20..22], 10) catch return null;
+    if (v[22] != ':') return null;
+    const second = std.fmt.parseInt(u8, v[23..25], 10) catch return null;
+    if (v.len < 29 or !std.ascii.eqlIgnoreCase(v[25..29], " GMT")) return null;
+    if (day == 0 or day > 31 or hour > 23 or minute > 59 or second > 60) return null;
+
+    const epoch = std.time.epoch;
+    if (year < epoch.epoch_year) return null;
+    var days: u64 = 0;
+    var y: epoch.Year = epoch.epoch_year;
+    while (y < year) : (y += 1) {
+        days += epoch.getDaysInYear(y);
+    }
+    var month_i: u4 = 1;
+    while (month_i < month) : (month_i += 1) {
+        days += epoch.getDaysInMonth(year, @enumFromInt(month_i));
+    }
+    if (day == 0 or day > epoch.getDaysInMonth(year, @enumFromInt(month))) return null;
+    days += day - 1;
+    return @intCast(days * epoch.secs_per_day + @as(u64, hour) * 3600 + @as(u64, minute) * 60 + second);
+}
+
+fn findRequestHeader(request: *http.Server.Request, name: []const u8) ?[]const u8 {
+    var it = request.iterateHeaders();
+    while (it.next()) |h| {
+        if (std.ascii.eqlIgnoreCase(h.name, name)) return h.value;
+    }
+    return null;
+}
+
+/// True when an existing resource is newer than `If-Unmodified-Since` (precondition failed).
+fn ifUnmodifiedSinceFailed(request: *http.Server.Request, abs: []const u8) bool {
+    const raw = findRequestHeader(request, "If-Unmodified-Since") orelse return false;
+    const since = parseHttpDate(raw) orelse return false;
+    const st = fsx.statFile(abs) catch return false;
+    return st.mtime.toSeconds() > since;
 }
 
 fn serveStatic(ctx: *const Ctx, request: *http.Server.Request, root: []const u8, prefix: []const u8, path: []const u8) !void {
@@ -335,12 +446,15 @@ fn sendPath(request: *http.Server.Request, arena: std.mem.Allocator, path: []con
 
 fn respondSendFile(request: *http.Server.Request, file: std.Io.File, content_type: []const u8) !void {
     const st = try file.stat(fsx.io);
+    var lm_buf: [http_date_len]u8 = undefined;
+    const last_modified = formatHttpDateFromStat(&lm_buf, st);
     var body_buf: [4096]u8 = undefined;
     var body = try request.respondStreaming(&body_buf, .{
         .content_length = st.size,
         .respond_options = .{
             .extra_headers = &.{
                 .{ .name = "Content-Type", .value = content_type },
+                .{ .name = "Last-Modified", .value = last_modified },
             },
         },
     });
@@ -412,14 +526,22 @@ fn handleDust(ctx: *const Ctx, request: *http.Server.Request, method: http.Metho
         else => return err,
     };
 
-    if (method == .GET) {
+    if (method == .GET or method == .HEAD) {
         if (name.len == 0 or std.mem.eql(u8, name, "/")) {
+            const st = fsx.statFile(abs) catch {
+                try respondErr(request, ctx.arena, .not_found, "file does not exist");
+                return;
+            };
             const entries = dust.listDir(ctx.arena, abs, "/api/v1/dust") catch |err| {
                 try respondErr(request, ctx.arena, .bad_request, @errorName(err));
                 return;
             };
             const body = try formatDirListing(ctx.arena, "", "/api/v1/dust", entries);
-            try respondJson(request, .ok, body);
+            var lm_buf: [http_date_len]u8 = undefined;
+            const last_modified = formatHttpDateFromStat(&lm_buf, st);
+            try respondJsonWithHeaders(request, .ok, body, &.{
+                .{ .name = "Last-Modified", .value = last_modified },
+            });
             return;
         }
 
@@ -434,7 +556,11 @@ fn handleDust(ctx: *const Ctx, request: *http.Server.Request, method: http.Metho
             const prefix = try std.fmt.allocPrint(ctx.arena, "/api/v1/dust/{s}", .{n});
             const entries = try dust.listDir(ctx.arena, abs, prefix);
             const body = try formatDirListing(ctx.arena, n, prefix, entries);
-            try respondJson(request, .ok, body);
+            var lm_buf: [http_date_len]u8 = undefined;
+            const last_modified = formatHttpDateFromStat(&lm_buf, st);
+            try respondJsonWithHeaders(request, .ok, body, &.{
+                .{ .name = "Last-Modified", .value = last_modified },
+            });
             return;
         }
 
@@ -454,6 +580,11 @@ fn handleDust(ctx: *const Ctx, request: *http.Server.Request, method: http.Metho
                 try respondMsg(request, ctx.arena, .ok, text);
                 return;
             }
+        }
+
+        if (ifUnmodifiedSinceFailed(request, abs)) {
+            try respondErr(request, ctx.arena, .precondition_failed, "file has been modified");
+            return;
         }
 
         // content_type points into the receive buffer. Reading the body
@@ -502,7 +633,15 @@ fn handleDust(ctx: *const Ctx, request: *http.Server.Request, method: http.Metho
 
         const filename = if (saved.filename.len > 0) saved.filename else "value";
         const text = try std.fmt.allocPrint(ctx.arena, "uploaded {s} ({d}) to {s}", .{ filename, saved.bytes, abs });
-        try respondMsg(request, ctx.arena, .ok, text);
+        var lm_buf: [http_date_len]u8 = undefined;
+        if (fsx.statFile(abs)) |st| {
+            const last_modified = formatHttpDateFromStat(&lm_buf, st);
+            try respondValueWithHeaders(request, ctx.arena, .ok, .{ .message = text }, &.{
+                .{ .name = "Last-Modified", .value = last_modified },
+            });
+        } else |_| {
+            try respondMsg(request, ctx.arena, .ok, text);
+        }
         return;
     }
 
