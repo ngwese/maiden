@@ -1,7 +1,6 @@
-# backend-next
+# backend
 
-zig reimplementation of the maiden backend aimed to be a drop-in replacement for
-the go binary in `backend/`.
+zig implementation of the maiden backend http server and cli.
 
 ## requirements
 
@@ -12,7 +11,7 @@ zig 0.17.1
 native:
 
 ```bash
-cd backend-next
+cd backend
 zig build
 # binary at zig-out/bin/maiden
 ```
@@ -20,21 +19,19 @@ zig build
 or from the repo root:
 
 ```bash
-make build-next
+make build
 ```
 
 cross-compile for norns (linux arm hard-float, glibc 2.31):
 
 ```bash
-make build-next-arm
+make build-arm
 # or:
-cd backend-next
+cd backend
 zig build -Dtarget=arm-linux-gnueabihf.2.31 -Doptimize=ReleaseSafe
 ```
 
 ## running
-
-same cli as the go backend:
 
 ```bash
 ./zig-out/bin/maiden server --debug --app ../web/build --data ~/dust

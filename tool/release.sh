@@ -15,8 +15,7 @@ mkdir -pv $REL_DIR
 # maiden
 echo -e "building maiden"
 echo "====================="
-#(cd "$REPO_ROOT/backend" && GOOS=linux GOARCH=arm "$REPO_ROOT/tool/go/run.sh" go build -ldflags="${GO_LDFLAGS}" -o "$REPO_ROOT/$REL_DIR/maiden")
-make build-next-arm
+make build-arm
 # for compatibility with old systemd unit setup
 cp -v tool/start.sh $REL_DIR
 cp -v tool/project-setup.sh $REL_DIR
@@ -47,7 +46,7 @@ echo -e "creating version manifest"
 echo "====================="
 cat > ${REL_DIR}/VERSIONS.json << VERSION_EOF
 {
-  "go": "$("$REPO_ROOT/tool/go/run.sh" go version | cut -d ' ' -f 3)",
+  "zig": "$(zig version)",
   "node": "$(node --version)",
   "yarn": "$(yarn --version)"
 }

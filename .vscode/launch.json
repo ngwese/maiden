@@ -2,14 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "maiden catalog list",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/backend",
-            "args": ["--debug", "--config", "./maiden-dev.yaml", "catalog", "list"]
-        },
-        {
             "name": "Chrome",
             "type": "chrome",
             "request": "launch",

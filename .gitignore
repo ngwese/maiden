@@ -7,12 +7,9 @@ vendor/
 
 # executables
 maiden
-maiden.arm
-maiden-next
-backend/maiden
-backend-next/zig-out/
-backend-next/.zig-cache/
-backend-next/zig-pkg/
+backend/.zig-cache/
+backend/zig-out/
+backend/zig-pkg/
 .zig-cache/
 
 # releases
@@ -25,9 +22,7 @@ maiden-v*.tgz
 *.tgz
 
 # build tools
-tool/go/go
 tool/node/nvm
-.gopath/
 web/yarn.lock
 
 # node modules
