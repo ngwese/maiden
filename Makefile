@@ -19,9 +19,10 @@ release:
 	./tool/release.sh
 
 clean:
+	rm -f maiden
 	rm -rf dist
-	rm -f maiden maiden.arm
-	rm -rf web/build backend/zig-out backend/.zig-cache
+	rm -rf web/build
+	rm -rf backend/zig-out backend/.zig-cache
 
 help:
 	@echo "Available targets:"
