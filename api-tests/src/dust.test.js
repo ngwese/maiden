@@ -172,4 +172,123 @@ describe('dust api', () => {
       expect(body).toEqual(expect.objectContaining({ error: expect.any(String) }));
     });
   });
+
+  describe('Last-Modified and HEAD', () => {
+    const httpDate = /^\w{3}, \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/;
+
+    it('GET file and directory include Last-Modified', async () => {
+      const dir = ws.path('lm-dir');
+      await ensureDir(dir);
+      const file = `${dir}/note.txt`;
+      await writeFile(file, 'stamp\n', 'note.txt');
+
+      const fileGet = await request(`/api/v1/dust/${file}`);
+      expect(fileGet.status).toBe(200);
+      expect(fileGet.headers.get('last-modified') || '').toMatch(httpDate);
+
+      const dirGet = await request(`/api/v1/dust/${dir}`);
+      expect(dirGet.status).toBe(200);
+      expect(dirGet.headers.get('last-modified') || '').toMatch(httpDate);
+
+      const rootGet = await request('/api/v1/dust');
+      expect(rootGet.status).toBe(200);
+      expect(rootGet.headers.get('last-modified') || '').toMatch(httpDate);
+    });
+
+    it('HEAD file and directory return Last-Modified matching GET with no body', async () => {
+      const dir = ws.path('head-dir');
+      await ensureDir(dir);
+      const file = `${dir}/head.txt`;
+      await writeFile(file, 'head me\n', 'head.txt');
+
+      for (const path of [`/api/v1/dust/${file}`, `/api/v1/dust/${dir}`]) {
+        const got = await request(path);
+        const head = await request(path, { method: 'HEAD' });
+        expect(head.status).toBe(200);
+        expect(head.body).toBe('');
+        expect(head.headers.get('last-modified')).toBe(got.headers.get('last-modified'));
+      }
+    });
+
+    it('HEAD of a missing path returns 404', async () => {
+      const missing = ws.path('head-missing.txt');
+      const { status, body } = await request(`/api/v1/dust/${missing}`, { method: 'HEAD' });
+      expect(status).toBe(404);
+      expect(body).toBe('');
+    });
+
+    it('external write changes Last-Modified on HEAD', async () => {
+      const file = ws.path('mtime-change.txt');
+      await writeFile(file, 'v1\n', 'mtime-change.txt');
+      const before = await request(`/api/v1/dust/${file}`, { method: 'HEAD' });
+      const lmBefore = before.headers.get('last-modified');
+      expect(lmBefore).toMatch(httpDate);
+
+      await new Promise(r => setTimeout(r, 1100));
+      await writeFile(file, 'v2\n', 'mtime-change.txt');
+
+      const after = await request(`/api/v1/dust/${file}`, { method: 'HEAD' });
+      expect(after.headers.get('last-modified')).not.toBe(lmBefore);
+    });
+
+    it('PUT response includes Last-Modified', async () => {
+      const file = ws.path('put-lm.txt');
+      const { status, headers, body } = await request(`/api/v1/dust/${file}`, {
+        method: 'PUT',
+        body: formWithValue('upload\n', 'put-lm.txt'),
+      });
+      expect(status).toBe(200);
+      expect(body.message).toContain('uploaded');
+      expect(headers.get('last-modified') || '').toMatch(httpDate);
+    });
+  });
+
+  describe('conditional PUT', () => {
+    it('PUT with matching If-Unmodified-Since succeeds', async () => {
+      const file = ws.path('cond-ok.txt');
+      await writeFile(file, 'original\n', 'cond-ok.txt');
+      const head = await request(`/api/v1/dust/${file}`, { method: 'HEAD' });
+      const lm = head.headers.get('last-modified');
+
+      const { status, body } = await request(`/api/v1/dust/${file}`, {
+        method: 'PUT',
+        headers: { 'If-Unmodified-Since': lm },
+        body: formWithValue('updated\n', 'cond-ok.txt'),
+      });
+      expect(status).toBe(200);
+      expect(body.message).toContain('uploaded');
+
+      const got = await request(`/api/v1/dust/${file}`);
+      expect(got.body).toBe('updated\n');
+    });
+
+    it('PUT with stale If-Unmodified-Since returns 412 and leaves body unchanged', async () => {
+      const file = ws.path('cond-412.txt');
+      await writeFile(file, 'keep-me\n', 'cond-412.txt');
+      const head = await request(`/api/v1/dust/${file}`, { method: 'HEAD' });
+      const lm = head.headers.get('last-modified');
+
+      await new Promise(r => setTimeout(r, 1100));
+      await writeFile(file, 'device-changed\n', 'cond-412.txt');
+
+      const conflict = await request(`/api/v1/dust/${file}`, {
+        method: 'PUT',
+        headers: { 'If-Unmodified-Since': lm },
+        body: formWithValue('browser-overwrite\n', 'cond-412.txt'),
+      });
+      expect(conflict.status).toBe(412);
+      expect(conflict.body).toEqual(expect.objectContaining({ error: expect.any(String) }));
+
+      const got = await request(`/api/v1/dust/${file}`);
+      expect(got.body).toBe('device-changed\n');
+
+      const forced = await request(`/api/v1/dust/${file}`, {
+        method: 'PUT',
+        body: formWithValue('forced\n', 'cond-412.txt'),
+      });
+      expect(forced.status).toBe(200);
+      const afterForce = await request(`/api/v1/dust/${file}`);
+      expect(afterForce.body).toBe('forced\n');
+    });
+  });
 });

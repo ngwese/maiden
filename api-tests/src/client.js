@@ -11,11 +11,10 @@ export function url(path) {
 export async function request(path, options = {}) {
   const response = await fetch(url(path), options);
   const contentType = response.headers.get('content-type') || '';
-  let body = null;
-  if (contentType.includes('application/json')) {
-    body = await response.json();
-  } else {
-    body = await response.text();
+  const text = await response.text();
+  let body = text;
+  if (contentType.includes('application/json') && text.length > 0) {
+    body = JSON.parse(text);
   }
   return { response, body, status: response.status, headers: response.headers };
 }
