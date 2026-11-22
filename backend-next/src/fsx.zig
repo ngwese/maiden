@@ -205,6 +205,25 @@ pub fn systemctlExecutable() ![]const u8 {
     return cachedBin("systemctl", &systemctl_bin);
 }
 
+/// Free process-lifetime executable path caches. Call before process exit so
+/// SafeAllocator does not report intentional caches as leaks.
+pub fn deinitCaches() void {
+    bin_lock.lockUncancelable(io);
+    defer bin_lock.unlock(io);
+    if (git_bin) |p| {
+        gpa.free(p);
+        git_bin = null;
+    }
+    if (curl_bin) |p| {
+        gpa.free(p);
+        curl_bin = null;
+    }
+    if (systemctl_bin) |p| {
+        gpa.free(p);
+        systemctl_bin = null;
+    }
+}
+
 /// `name` with one leading slash removed, or `error.BadPath` when it contains NUL or a `..` component.
 /// The result aliases `name` or a suffix of it.
 pub fn relativeInside(name: []const u8) error{BadPath}![]const u8 {

@@ -22,9 +22,12 @@ pub fn main(init: std.process.Init) !void {
     fsx.setIo(io);
     fsx.setAllocator(gpa);
     fsx.setEnviron(init.environ_map);
+    defer fsx.deinitCaches();
 
     cli.run(gpa, io, args.items) catch |err| {
         std.debug.print("error: {s}\n", .{@errorName(err)});
+        // exit() skips defers; free caches before aborting.
+        fsx.deinitCaches();
         std.process.exit(1);
     };
 }

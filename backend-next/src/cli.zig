@@ -17,7 +17,10 @@ pub fn run(allocator: std.mem.Allocator, io: Io, args: []const []const u8) !void
 
     while (i < args.len) {
         const a = args[i];
-        if (std.mem.eql(u8, a, "--debug")) {
+        if (isHelpFlag(a)) {
+            try printRootUsage();
+            return;
+        } else if (std.mem.eql(u8, a, "--debug")) {
             debug = true;
             i += 1;
         } else if (std.mem.eql(u8, a, "--config")) {
@@ -36,7 +39,7 @@ pub fn run(allocator: std.mem.Allocator, io: Io, args: []const []const u8) !void
     log.debug_enabled = debug;
 
     if (i >= args.len) {
-        try printUsage();
+        try printRootUsage();
         return;
     }
 
@@ -44,7 +47,15 @@ pub fn run(allocator: std.mem.Allocator, io: Io, args: []const []const u8) !void
     i += 1;
     const rest = args[i..];
 
+    if (std.mem.eql(u8, cmd, "help")) {
+        try cmdHelp(rest);
+        return;
+    }
     if (std.mem.eql(u8, cmd, "version")) {
+        if (hasHelpFlag(rest)) {
+            try printLeafUsage("version", "print maiden version", null);
+            return;
+        }
         std.debug.print("{s}\n", .{server.versionString()});
         return;
     }
@@ -66,32 +77,248 @@ pub fn run(allocator: std.mem.Allocator, io: Io, args: []const []const u8) !void
     }
 
     log.err("unknown command: {s}", .{cmd});
-    try printUsage();
+    try printRootUsage();
     std.process.exit(1);
 }
 
-fn printUsage() !void {
+fn isHelpFlag(a: []const u8) bool {
+    return std.mem.eql(u8, a, "--help") or std.mem.eql(u8, a, "-h");
+}
+
+fn hasHelpFlag(args: []const []const u8) bool {
+    for (args) |a| {
+        if (isHelpFlag(a)) return true;
+    }
+    return false;
+}
+
+fn printRootUsage() !void {
     std.debug.print(
-        \\maiden - web editor for norns scripts
+        \\web editor for norns scripts
         \\
         \\Usage:
-        \\  maiden [flags] <command>
+        \\  maiden [command]
+        \\
+        \\Available Commands:
+        \\  catalog     manage the script catalog
+        \\  help        Help about any command
+        \\  project     manage dust projects
+        \\  repl        norns repl
+        \\  server      run the backend server for maiden
+        \\  version     print maiden version
         \\
         \\Flags:
-        \\  --debug           enable debug logging
-        \\  --config <path>   use specific config file
+        \\      --config string   use specific config file
+        \\      --debug           enable debug logging
+        \\  -h, --help            help for maiden
         \\
-        \\Commands:
-        \\  server    run the backend server
-        \\  version   print maiden version
-        \\  catalog   manage the script catalog
-        \\  project   manage dust projects
-        \\  repl      norns repl
+        \\Use "maiden [command] --help" for more information about a command.
         \\
     , .{});
 }
 
+fn printCatalogUsage() !void {
+    std.debug.print(
+        \\manage the script catalog
+        \\
+        \\Usage:
+        \\  maiden catalog [command]
+        \\
+        \\Available Commands:
+        \\  init        init an empty catalog file
+        \\  list        list projects
+        \\  update      update configured catalogs
+        \\
+        \\Flags:
+        \\  -h, --help   help for catalog
+        \\
+        \\Global Flags:
+        \\      --config string   use specific config file
+        \\      --debug           enable debug logging
+        \\
+        \\Use "maiden catalog [command] --help" for more information about a command.
+        \\
+    , .{});
+}
+
+fn printProjectUsage() !void {
+    std.debug.print(
+        \\manage dust projects
+        \\
+        \\Usage:
+        \\  maiden project [command]
+        \\
+        \\Available Commands:
+        \\  install     install a script/project
+        \\  list        list installed script/project(s)
+        \\  push        push a git based project
+        \\  remove      remove a project dir
+        \\  update      update a script/project
+        \\
+        \\Flags:
+        \\  -h, --help   help for project
+        \\
+        \\Global Flags:
+        \\      --config string   use specific config file
+        \\      --debug           enable debug logging
+        \\
+        \\Use "maiden project [command] --help" for more information about a command.
+        \\
+    , .{});
+}
+
+fn printLeafUsage(name: []const u8, short: []const u8, use_extra: ?[]const u8) !void {
+    const use = use_extra orelse name;
+    std.debug.print(
+        \\{s}
+        \\
+        \\Usage:
+        \\  maiden {s} [flags]
+        \\
+        \\Flags:
+        \\  -h, --help   help for {s}
+        \\
+        \\Global Flags:
+        \\      --config string   use specific config file
+        \\      --debug           enable debug logging
+        \\
+    , .{ short, use, name });
+}
+
+fn printServerUsage() !void {
+    std.debug.print(
+        \\run the backend server for maiden
+        \\
+        \\Usage:
+        \\  maiden server [flags]
+        \\
+        \\Flags:
+        \\      --port port       HTTP port (default 5000)
+        \\      --fd descriptor   file descriptor on which to serve HTTP (overrides -port)
+        \\      --data path       path to user data directory (dust) (default "data/")
+        \\      --app path        path to maiden web app directory (default "app/")
+        \\      --doc path        path to norns lua docs (default "doc/")
+        \\  -h, --help            help for server
+        \\
+        \\Global Flags:
+        \\      --config string   use specific config file
+        \\      --debug           enable debug logging
+        \\
+    , .{});
+}
+
+fn printProjectUpdateUsage() !void {
+    std.debug.print(
+        \\update a script/project
+        \\
+        \\Usage:
+        \\  maiden project update [names] [flags]
+        \\
+        \\Flags:
+        \\      --all    update all installed projects
+        \\  -h, --help   help for update
+        \\
+        \\Global Flags:
+        \\      --config string   use specific config file
+        \\      --debug           enable debug logging
+        \\
+    , .{});
+}
+
+fn cmdHelp(args: []const []const u8) !void {
+    if (args.len == 0) {
+        try printRootUsage();
+        return;
+    }
+    const topic = args[0];
+    if (std.mem.eql(u8, topic, "catalog")) {
+        if (args.len > 1) {
+            try helpCatalogSub(args[1]);
+        } else {
+            try printCatalogUsage();
+        }
+        return;
+    }
+    if (std.mem.eql(u8, topic, "project")) {
+        if (args.len > 1) {
+            try helpProjectSub(args[1]);
+        } else {
+            try printProjectUsage();
+        }
+        return;
+    }
+    if (std.mem.eql(u8, topic, "server")) {
+        try printServerUsage();
+        return;
+    }
+    if (std.mem.eql(u8, topic, "version")) {
+        try printLeafUsage("version", "print maiden version", null);
+        return;
+    }
+    if (std.mem.eql(u8, topic, "repl")) {
+        try printLeafUsage("repl", "norns repl", null);
+        return;
+    }
+    if (std.mem.eql(u8, topic, "help")) {
+        std.debug.print(
+            \\Help about any command
+            \\
+            \\Usage:
+            \\  maiden help [command] [flags]
+            \\
+            \\Flags:
+            \\  -h, --help   help for help
+            \\
+            \\Global Flags:
+            \\      --config string   use specific config file
+            \\      --debug           enable debug logging
+            \\
+        , .{});
+        return;
+    }
+    log.err("unknown help topic: {s}", .{topic});
+    try printRootUsage();
+    std.process.exit(1);
+}
+
+fn helpCatalogSub(sub: []const u8) !void {
+    if (std.mem.eql(u8, sub, "list")) {
+        try printLeafUsage("list", "list projects", "catalog list");
+    } else if (std.mem.eql(u8, sub, "init")) {
+        try printLeafUsage("init", "init an empty catalog file", "catalog init");
+    } else if (std.mem.eql(u8, sub, "update")) {
+        try printLeafUsage("update", "update configured catalogs", "catalog update");
+    } else {
+        log.err("unknown help topic: catalog {s}", .{sub});
+        try printCatalogUsage();
+        std.process.exit(1);
+    }
+}
+
+fn helpProjectSub(sub: []const u8) !void {
+    if (std.mem.eql(u8, sub, "list")) {
+        try printLeafUsage("list", "list installed script/project(s)", "project list [names]");
+    } else if (std.mem.eql(u8, sub, "install")) {
+        try printLeafUsage("install", "install a script/project", "project install <names or urls>");
+    } else if (std.mem.eql(u8, sub, "update")) {
+        try printProjectUpdateUsage();
+    } else if (std.mem.eql(u8, sub, "push")) {
+        try printLeafUsage("push", "push a git based project", "project push");
+    } else if (std.mem.eql(u8, sub, "remove")) {
+        try printLeafUsage("remove", "remove a project dir", "project remove <names>");
+    } else {
+        log.err("unknown help topic: project {s}", .{sub});
+        try printProjectUsage();
+        std.process.exit(1);
+    }
+}
+
 fn cmdServer(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, args: []const []const u8) !void {
+    if (hasHelpFlag(args)) {
+        try printServerUsage();
+        return;
+    }
+
     var port: u16 = 5000;
     var fd: i32 = 0;
     var data: ?[]const u8 = null;
@@ -147,12 +374,20 @@ fn cmdServer(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, arg
 }
 
 fn cmdCatalog(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, args: []const []const u8) !void {
-    if (args.len == 0) return error.MissingSubcommand;
+    if (args.len == 0 or isHelpFlag(args[0])) {
+        try printCatalogUsage();
+        return;
+    }
     const sub = args[0];
-    var cfg = try config.load(allocator, config_path);
-    defer cfg.deinit();
+    const rest = args[1..];
 
     if (std.mem.eql(u8, sub, "list")) {
+        if (hasHelpFlag(rest)) {
+            try printLeafUsage("list", "list projects", "catalog list");
+            return;
+        }
+        var cfg = try config.load(allocator, config_path);
+        defer cfg.deinit();
         const catalogs = try catalog.loadCatalogs(allocator, &cfg);
         defer {
             for (catalogs) |*c| c.deinit();
@@ -181,8 +416,12 @@ fn cmdCatalog(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, ar
     }
 
     if (std.mem.eql(u8, sub, "init")) {
-        if (args.len < 2) return error.MissingArgs;
-        const path = args[1];
+        if (hasHelpFlag(rest)) {
+            try printLeafUsage("init", "init an empty catalog file", "catalog init");
+            return;
+        }
+        if (rest.len < 1) return error.MissingArgs;
+        const path = rest[0];
         const name = std.fs.path.stem(path);
         const json = try catalog.emptyCatalogJson(name, allocator);
         defer allocator.free(json);
@@ -193,16 +432,57 @@ fn cmdCatalog(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, ar
     }
 
     if (std.mem.eql(u8, sub, "update")) {
+        if (hasHelpFlag(rest)) {
+            try printLeafUsage("update", "update configured catalogs", "catalog update");
+            return;
+        }
+        var cfg = try config.load(allocator, config_path);
+        defer cfg.deinit();
         try server.updateCatalogs(allocator, io, &cfg);
         return;
     }
 
-    return error.UnknownSubcommand;
+    try printCatalogUsage();
 }
 
 fn cmdProject(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, args: []const []const u8) !void {
-    if (args.len == 0) return error.MissingSubcommand;
+    if (args.len == 0 or isHelpFlag(args[0])) {
+        try printProjectUsage();
+        return;
+    }
     const sub = args[0];
+    const rest = args[1..];
+
+    if (std.mem.eql(u8, sub, "list")) {
+        if (hasHelpFlag(rest)) {
+            try printLeafUsage("list", "list installed script/project(s)", "project list [names]");
+            return;
+        }
+    } else if (std.mem.eql(u8, sub, "install")) {
+        if (hasHelpFlag(rest)) {
+            try printLeafUsage("install", "install a script/project", "project install <names or urls>");
+            return;
+        }
+    } else if (std.mem.eql(u8, sub, "update")) {
+        if (hasHelpFlag(rest)) {
+            try printProjectUpdateUsage();
+            return;
+        }
+    } else if (std.mem.eql(u8, sub, "push")) {
+        if (hasHelpFlag(rest)) {
+            try printLeafUsage("push", "push a git based project", "project push");
+            return;
+        }
+    } else if (std.mem.eql(u8, sub, "remove")) {
+        if (hasHelpFlag(rest)) {
+            try printLeafUsage("remove", "remove a project dir", "project remove <names>");
+            return;
+        }
+    } else {
+        try printProjectUsage();
+        return;
+    }
+
     var cfg = try config.load(allocator, config_path);
     defer cfg.deinit();
     try config.ensureDustCode(&cfg, allocator);
@@ -222,7 +502,7 @@ fn cmdProject(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, ar
         }
         std.debug.print("project\tgit\tversion\tdir\t\n", .{});
         std.debug.print("-------\t---\t-------\t---\t\n", .{});
-        const selected = args[1..];
+        const selected = rest;
         if (selected.len == 0) {
             for (projects) |p| try printProject(allocator, io, p);
         } else {
@@ -238,13 +518,13 @@ fn cmdProject(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, ar
     }
 
     if (std.mem.eql(u8, sub, "install")) {
-        if (args.len < 2) return error.MissingArgs;
+        if (rest.len < 1) return error.MissingArgs;
         const catalogs = try catalog.loadCatalogs(allocator, &cfg);
         defer {
             for (catalogs) |*c| c.deinit();
             allocator.free(catalogs);
         }
-        for (args[1..]) |arg| {
+        for (rest) |arg| {
             var project_url: []const u8 = arg;
             var project_name: []const u8 = dust.inferProjectNameFromURL(arg);
             var entry: ?catalog.Entry = null;
@@ -270,7 +550,7 @@ fn cmdProject(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, ar
         var all = false;
         var names: std.ArrayListUnmanaged([]const u8) = .empty;
         defer names.deinit(allocator);
-        for (args[1..]) |arg| {
+        for (rest) |arg| {
             if (std.mem.eql(u8, arg, "--all")) {
                 all = true;
             } else {
@@ -305,8 +585,8 @@ fn cmdProject(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, ar
     }
 
     if (std.mem.eql(u8, sub, "push")) {
-        if (args.len < 2) return error.MissingArgs;
-        for (args[1..]) |name| {
+        if (rest.len < 1) return error.MissingArgs;
+        for (rest) |name| {
             const root = try std.fs.path.join(allocator, &.{ cfg.dust_code, name });
             defer allocator.free(root);
             try git.push(allocator, io, root);
@@ -315,7 +595,7 @@ fn cmdProject(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, ar
     }
 
     if (std.mem.eql(u8, sub, "remove")) {
-        if (args.len < 2) return error.MissingArgs;
+        if (rest.len < 1) return error.MissingArgs;
         const projects = try dust.getProjects(allocator, cfg.dust_code);
         defer {
             for (projects) |p| {
@@ -324,7 +604,7 @@ fn cmdProject(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, ar
             }
             allocator.free(projects);
         }
-        for (args[1..]) |name| {
+        for (rest) |name| {
             if (dust.searchProjects(projects, name)) |p| {
                 std.debug.print("Removing: {s} ({s})... ", .{ p.name, p.root });
                 try fsx.deleteTree(p.root);
@@ -335,8 +615,6 @@ fn cmdProject(allocator: std.mem.Allocator, io: Io, config_path: ?[]const u8, ar
         }
         return;
     }
-
-    return error.UnknownSubcommand;
 }
 
 fn printProject(allocator: std.mem.Allocator, io: Io, p: dust.Project) !void {
@@ -392,6 +670,10 @@ fn updateOne(
 }
 
 fn cmdRepl(allocator: std.mem.Allocator, io: Io, args: []const []const u8) !void {
+    if (hasHelpFlag(args)) {
+        try printLeafUsage("repl", "norns repl", null);
+        return;
+    }
     const binary = fsx.findInPath(allocator, "maiden-repl") catch {
         log.err("maiden-repl not found on PATH", .{});
         std.process.exit(1);
