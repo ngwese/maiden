@@ -1,9 +1,11 @@
 const std = @import("std");
-const log = @import("log.zig");
-const git = @import("git.zig");
-const catalog = @import("catalog.zig");
-const fsx = @import("fsx.zig");
-const jsonx = @import("jsonx.zig");
+const log = std.log.scoped(.project);
+const git = @import("../common/git.zig");
+const catalog = @import("../catalog.zig");
+const fsx = @import("../common/fsx.zig");
+const httpx = @import("../common/httpx.zig");
+const urlx = @import("../common/urlx.zig");
+const jsonx = @import("../common/jsonx.zig");
 const Io = std.Io;
 
 pub const Project = struct {
@@ -44,23 +46,15 @@ pub fn devicePath(allocator: std.mem.Allocator, data_dir: []const u8, name: []co
 /// Join `prefix` and `parts` into a URL path, percent-encoding bytes that are not unreserved.
 /// Caller frees the result.
 pub fn resourcePath(allocator: std.mem.Allocator, prefix: []const u8, parts: []const []const u8) ![]u8 {
-    var list: std.ArrayListUnmanaged(u8) = .empty;
-    errdefer list.deinit(allocator);
-    try list.appendSlice(allocator, prefix);
+    var out: std.Io.Writer.Allocating = .init(allocator);
+    errdefer out.deinit();
+    try out.writer.writeAll(prefix);
     for (parts) |p| {
         if (p.len == 0) continue;
-        try list.append(allocator, '/');
-        for (p) |c| {
-            if (std.ascii.isAlphanumeric(c) or c == '-' or c == '_' or c == '.' or c == '~') {
-                try list.append(allocator, c);
-            } else {
-                var buf: [3]u8 = undefined;
-                _ = try std.fmt.bufPrint(&buf, "%{X:0>2}", .{c});
-                try list.appendSlice(allocator, &buf);
-            }
-        }
+        try out.writer.writeByte('/');
+        try urlx.percentEncodeWrite(&out.writer, p);
     }
-    return try list.toOwnedSlice(allocator);
+    return try out.toOwnedSlice();
 }
 
 pub const FileInfo = struct {
@@ -410,19 +404,11 @@ fn downloadToTemp(allocator: std.mem.Allocator, io: Io, url: []const u8, dest: [
     const tmp_name = try std.fmt.allocPrint(allocator, "{s}.download-{d}.zip", .{ dest, seq });
     errdefer allocator.free(tmp_name);
 
-    const curl = try fsx.curlExecutable();
-    const argv = [_][]const u8{ curl, "-fsSL", "-o", tmp_name, url };
-    const result = try std.process.run(allocator, io, .{
-        .exe = .detect,
-        .argv = &argv,
-    });
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
-    if (!result.term.success()) {
+    httpx.downloadToPath(allocator, io, url, tmp_name, null) catch |err| {
         fsx.deleteFile(tmp_name) catch {};
-        log.warn("zip download failed: {s}", .{result.stderr});
+        log.warn("zip download failed: {s}", .{@errorName(err)});
         return error.DownloadFailed;
-    }
+    };
     const file = try fsx.openFile(tmp_name);
     fsx.syncFile(file);
     fsx.closeFile(file);

@@ -1,5 +1,6 @@
 const std = @import("std");
-const log = @import("log.zig");
+const yaml = @import("yaml");
+const log = std.log.scoped(.config);
 const fsx = @import("fsx.zig");
 
 /// Minimal config covering the maiden.yaml keys the Go binary uses.
@@ -116,7 +117,7 @@ pub fn load(allocator: std.mem.Allocator, explicit_path: ?[]const u8) !Config {
             return cfg;
         };
         defer allocator.free(content);
-        try parseYamlSubset(allocator, &cfg, content);
+        try parseYaml(allocator, &cfg, content);
     } else {
         log.debug("used confg: ", .{});
     }
@@ -124,71 +125,78 @@ pub fn load(allocator: std.mem.Allocator, explicit_path: ?[]const u8) !Config {
     return cfg;
 }
 
-fn parseYamlSubset(allocator: std.mem.Allocator, cfg: *Config, content: []const u8) !void {
-    var lines = std.mem.splitScalar(u8, content, '\n');
-    var section: enum { none, sources, catalogs, dust, web, doc } = .none;
+const YamlPath = struct {
+    path: []const u8 = "",
+    code: []const u8 = "",
+};
 
-    while (lines.next()) |raw_line| {
-        const line = std.mem.trimEnd(u8, raw_line, " \t\r");
-        if (line.len == 0 or line[0] == '#') continue;
+const YamlFile = struct {
+    sources: []const []const u8 = &.{},
+    catalogs: []const []const u8 = &.{},
+    catalogOutputDir: []const u8 = "",
+    dust: YamlPath = .{},
+    web: YamlPath = .{},
+    doc: YamlPath = .{},
+};
 
-        if (std.mem.eql(u8, line, "sources:")) {
-            section = .sources;
-            continue;
-        }
-        if (std.mem.eql(u8, line, "catalogs:")) {
-            section = .catalogs;
-            continue;
-        }
-        if (std.mem.eql(u8, line, "dust:")) {
-            section = .dust;
-            continue;
-        }
-        if (std.mem.eql(u8, line, "web:")) {
-            section = .web;
-            continue;
-        }
-        if (std.mem.eql(u8, line, "doc:")) {
-            section = .doc;
-            continue;
-        }
-        if (std.mem.startsWith(u8, line, "catalogOutputDir:")) {
-            section = .none;
-            try setOwned(allocator, &cfg.catalog_output_dir, trimYamlValue(line["catalogOutputDir:".len..]));
-            continue;
-        }
+fn parseYaml(allocator: std.mem.Allocator, cfg: *Config, content: []const u8) !void {
+    if (!yamlHasDocument(content)) return;
 
-        const trimmed = std.mem.trimStart(u8, line, " \t");
-        if (std.mem.startsWith(u8, trimmed, "- ")) {
-            const owned = try expandEnv(allocator, trimYamlValue(trimmed[2..]));
-            switch (section) {
-                .sources => try cfg.sources.append(allocator, owned),
-                .catalogs => try cfg.catalogs.append(allocator, owned),
-                else => allocator.free(owned),
-            }
-            continue;
-        }
+    var diagnostic: yaml.Diagnostic = .{};
+    const parsed = yaml.parseFromSlice(YamlFile, allocator, content, .{
+        .ignore_unknown_fields = true,
+        .diagnostic = &diagnostic,
+    }) catch |err| {
+        log.warn("config parse failed: {s}: {s}", .{ @errorName(err), diagnostic.detail() });
+        return err;
+    };
+    defer parsed.deinit();
+    const doc = parsed.value;
 
-        if (section == .dust) {
-            if (std.mem.startsWith(u8, trimmed, "path:")) {
-                try setOwned(allocator, &cfg.dust_path, trimYamlValue(trimmed["path:".len..]));
-            } else if (std.mem.startsWith(u8, trimmed, "code:")) {
-                try setOwned(allocator, &cfg.dust_code, trimYamlValue(trimmed["code:".len..]));
-            }
-        } else if (section == .web and std.mem.startsWith(u8, trimmed, "path:")) {
-            try setOwned(allocator, &cfg.web_path, trimYamlValue(trimmed["path:".len..]));
-        } else if (section == .doc and std.mem.startsWith(u8, trimmed, "path:")) {
-            try setOwned(allocator, &cfg.doc_path, trimYamlValue(trimmed["path:".len..]));
-        }
-    }
+    for (doc.sources) |item| try cfg.sources.append(allocator, try expandEnv(allocator, item));
+    for (doc.catalogs) |item| try cfg.catalogs.append(allocator, try expandEnv(allocator, item));
+    if (doc.catalogOutputDir.len > 0) try setOwned(allocator, &cfg.catalog_output_dir, doc.catalogOutputDir);
+    if (doc.dust.path.len > 0) try setOwned(allocator, &cfg.dust_path, doc.dust.path);
+    if (doc.dust.code.len > 0) try setOwned(allocator, &cfg.dust_code, doc.dust.code);
+    if (doc.web.path.len > 0) try setOwned(allocator, &cfg.web_path, doc.web.path);
+    if (doc.doc.path.len > 0) try setOwned(allocator, &cfg.doc_path, doc.doc.path);
 }
 
-fn trimYamlValue(s: []const u8) []const u8 {
-    var v = std.mem.trim(u8, s, " \t");
-    if (v.len >= 2 and ((v[0] == '"' and v[v.len - 1] == '"') or (v[0] == '\'' and v[v.len - 1] == '\''))) {
-        v = v[1 .. v.len - 1];
+fn yamlHasDocument(content: []const u8) bool {
+    var lines = std.mem.splitScalar(u8, content, '\n');
+    while (lines.next()) |raw| {
+        const line = std.mem.trim(u8, raw, " \t\r");
+        if (line.len != 0 and line[0] != '#') return true;
     }
-    return v;
+    return false;
+}
+
+test "yaml config keeps comments out of values and reads flow lists" {
+    var cfg: Config = .{
+        .allocator = std.testing.allocator,
+        .dust_path = try std.testing.allocator.dupe(u8, "data/"),
+        .web_path = try std.testing.allocator.dupe(u8, "app/"),
+        .doc_path = try std.testing.allocator.dupe(u8, "doc/"),
+    };
+    defer cfg.deinit();
+    try parseYaml(std.testing.allocator, &cfg,
+        \\# comment
+        \\sources: ["one.json", two.json] # trailing
+        \\catalogOutputDir: "/tmp/out" # keep
+        \\dust:
+        \\  path: "a:b"
+        \\  code: dust-code
+        \\web:
+        \\  path: web-path
+        \\
+    );
+    try std.testing.expectEqual(@as(usize, 2), cfg.sources.items.len);
+    try std.testing.expectEqualStrings("one.json", cfg.sources.items[0]);
+    try std.testing.expectEqualStrings("two.json", cfg.sources.items[1]);
+    try std.testing.expectEqualStrings("/tmp/out", cfg.catalog_output_dir);
+    try std.testing.expectEqualStrings("a:b", cfg.dust_path);
+    try std.testing.expectEqualStrings("dust-code", cfg.dust_code);
+    try std.testing.expectEqualStrings("web-path", cfg.web_path);
 }
 
 /// Override dust, web, and doc paths from server flags that were actually set.

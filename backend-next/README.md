@@ -40,6 +40,16 @@ same cli as the go backend:
 ./zig-out/bin/maiden server --debug --app ../web/build --data ~/dust
 ```
 
+built-in TUI REPL (replaces the external `maiden-repl` binary). Websocket
+endpoints are loaded from `{--api}/maiden/repl-endpoints.json` (`maiden_app_location`
+is replaced with the API host):
+
+```bash
+./zig-out/bin/maiden repl
+# optional: override discovered websocket URLs, and/or --api for the maiden server
+./zig-out/bin/maiden repl ws://127.0.0.1:5555/ ws://127.0.0.1:5556/ --api http://127.0.0.1/
+```
+
 ## testing
 
 point the api test suite at a running server:

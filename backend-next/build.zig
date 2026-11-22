@@ -12,17 +12,40 @@ pub fn build(b: *std.Build) void {
     options.addOption([]const u8, "version", version);
     options.addOption([]const u8, "compile_time", compile_time);
 
+    const zigtui = b.dependency("zigtui", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const websocket = b.dependency("websocket", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const clap = b.dependency("clap", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const yaml = b.dependency("yaml", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const root_mod = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .imports = &.{
+            .{ .name = "build_options", .module = options.createModule() },
+            .{ .name = "zigtui", .module = zigtui.module("zigtui") },
+            .{ .name = "websocket", .module = websocket.module("websocket") },
+            .{ .name = "clap", .module = clap.module("clap") },
+            .{ .name = "yaml", .module = yaml.module("yaml") },
+        },
+    });
+
     const exe = b.addExecutable(.{
         .name = "maiden",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
-            .optimize = optimize,
-            .link_libc = true,
-            .imports = &.{
-                .{ .name = "build_options", .module = options.createModule() },
-            },
-        }),
+        .root_module = root_mod,
         // Match norns packaging: dynamically link glibc (and system libc on other hosts).
         .linkage = .dynamic,
     });
@@ -35,4 +58,11 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run", "Run maiden");
     run_step.dependOn(&run_cmd.step);
+
+    const unit_tests = b.addTest(.{
+        .root_module = root_mod,
+    });
+    const run_unit_tests = b.addRunArtifact(unit_tests);
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_unit_tests.step);
 }

@@ -12,6 +12,7 @@ maiden-next
 backend/maiden
 backend-next/zig-out/
 backend-next/.zig-cache/
+backend-next/zig-pkg/
 .zig-cache/
 
 # releases

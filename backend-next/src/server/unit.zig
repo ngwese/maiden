@@ -1,4 +1,4 @@
-const fsx = @import("fsx.zig");
+const fsx = @import("../common/fsx.zig");
 const std = @import("std");
 
 pub const Status = struct {

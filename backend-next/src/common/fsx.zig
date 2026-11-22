@@ -178,7 +178,6 @@ pub fn findInPath(allocator: std.mem.Allocator, name: []const u8) ![]u8 {
 
 var bin_lock: std.Io.Mutex = .init;
 var git_bin: ?[]u8 = null;
-var curl_bin: ?[]u8 = null;
 var systemctl_bin: ?[]u8 = null;
 
 fn cachedBin(name: []const u8, slot: *?[]u8) ![]const u8 {
@@ -195,11 +194,6 @@ pub fn gitExecutable() ![]const u8 {
     return cachedBin("git", &git_bin);
 }
 
-/// Path to `curl`, cached for the process lifetime. The slice must not be freed.
-pub fn curlExecutable() ![]const u8 {
-    return cachedBin("curl", &curl_bin);
-}
-
 /// Path to `systemctl`, cached for the process lifetime. The slice must not be freed.
 pub fn systemctlExecutable() ![]const u8 {
     return cachedBin("systemctl", &systemctl_bin);
@@ -213,10 +207,6 @@ pub fn deinitCaches() void {
     if (git_bin) |p| {
         gpa.free(p);
         git_bin = null;
-    }
-    if (curl_bin) |p| {
-        gpa.free(p);
-        curl_bin = null;
     }
     if (systemctl_bin) |p| {
         gpa.free(p);

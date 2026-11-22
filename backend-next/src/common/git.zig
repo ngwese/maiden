@@ -1,6 +1,6 @@
 const fsx = @import("fsx.zig");
 const std = @import("std");
-const log = @import("log.zig");
+const log = std.log.scoped(.git);
 
 pub const Pull = union(enum) {
     updated,
