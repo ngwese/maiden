@@ -9,7 +9,9 @@ scripts used for packaging and device setup:
 ## usage
 
 ```bash
-make build        # native zig backend → ./maiden
-make build-arm    # cross-compile for norns
-make release      # build for linux arm and package dist/maiden.tgz
+make backend       # native zig backend → ./maiden
+make backend-arm   # cross-compile for norns
+make frontend      # release-build the web frontend
+make release       # build for linux arm and package dist/maiden.tgz
 ```
+

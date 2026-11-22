@@ -19,14 +19,15 @@ zig build
 or from the repo root:
 
 ```bash
-make build
+make backend
 ```
 
 cross-compile for norns (linux arm hard-float, glibc 2.31):
 
 ```bash
-make build-arm
+make backend-arm
 # or:
+
 cd backend
 zig build -Dtarget=arm-linux-gnueabihf.2.31 -Doptimize=ReleaseSafe
 ```

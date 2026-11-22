@@ -22,11 +22,13 @@ machine.
 the simplest way to build is using the included makefile:
 
 ```bash
-make build       # build the backend (native)
-make build-arm   # cross-compile for linux arm (norns)
-make release     # build release for linux arm and package in dist/maiden.tgz
-make help        # show available targets
+make backend       # build the backend (native)
+make backend-arm   # cross-compile for linux arm (norns)
+make frontend      # release-build the web frontend
+make release       # build release for linux arm and package in dist/maiden.tgz
+make help          # show available targets
 ```
+
 
 ### manual build
 
@@ -45,13 +47,19 @@ zig build
 or from the repo root:
 
 ```bash
-make build
+make backend
 # binary at ./maiden
 ```
 
 #### frontend (ui)
 
-from the `web/` directory in the `maiden` source tree:
+from the repo root:
+
+```bash
+make frontend
+```
+
+or from the `web/` directory:
 
 ```bash
 yarn install
@@ -62,17 +70,19 @@ running `yarn build` will output static, bundled, and minified js, css, and html
 files suitable for release in the `build` directory. the built results are self
 contained and do not depend on node or any of the associated react toolchain.
 
+
 ### cross-compiling
 
 if developing on a linux or macos it is trivial to cross compile for arm
 (raspberry pi):
 
 ```bash
-make build-arm
+make backend-arm
 # or:
 cd backend
 zig build -Dtarget=arm-linux-gnueabihf.2.31 -Doptimize=ReleaseSafe
 ```
+
 
 **note:** the release target in `tool/release.sh` automatically builds for linux
 arm.
@@ -96,18 +106,17 @@ MAIDEN_BASE_URL=http://127.0.0.1:5000 yarn --cwd api-tests test
 ## development
 
 ```bash
-# build backend
-make build
+# build backend and frontend
+make backend
+make frontend
 
-# build frontend
-cd web
-yarn install
-yarn build
-yarn start
+# optional: hot-reload frontend
+cd web && yarn start
 
 # run backend in a separate shell
 ./maiden server --debug --app web/build/ --data ~/dust
 ```
+
 
 ## known compatible versions
 

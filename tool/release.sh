@@ -13,9 +13,9 @@ rm -rf ./dist
 mkdir -pv $REL_DIR
 
 # maiden
-echo -e "building maiden"
+echo -e "\nbuilding maiden"
 echo "====================="
-make build-arm
+make backend-arm
 # for compatibility with old systemd unit setup
 cp -v tool/start.sh $REL_DIR
 cp -v tool/project-setup.sh $REL_DIR
@@ -28,13 +28,11 @@ cp -v sources/*.json $REL_DIR/dist/sources/
 # app
 echo -e "\nbuilding app"
 echo "====================="
-cd web
-yarn install
-yarn build
-cd ..
+make frontend
 
 mkdir -pv ${REL_DIR}/app
 cp -rv ./web/build ${REL_DIR}/app
+
 
 # tarball
 echo -e "\nmaking release"
