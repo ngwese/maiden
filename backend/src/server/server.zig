@@ -292,10 +292,11 @@ fn respondJsonWithHeaders(
 ) !void {
     var headers: [8]http.Header = undefined;
     headers[0] = .{ .name = "Content-Type", .value = "application/json; charset=utf-8" };
-    @memcpy(headers[1..][0..extra.len], extra);
+    headers[1] = .{ .name = "Cache-Control", .value = "no-store" };
+    @memcpy(headers[2..][0..extra.len], extra);
     try request.respond(body, .{
         .status = status,
-        .extra_headers = headers[0 .. 1 + extra.len],
+        .extra_headers = headers[0 .. 2 + extra.len],
     });
 }
 
@@ -378,7 +379,10 @@ fn parseHttpDate(value: []const u8) ?i64 {
     const minute = std.fmt.parseInt(u8, v[20..22], 10) catch return null;
     if (v[22] != ':') return null;
     const second = std.fmt.parseInt(u8, v[23..25], 10) catch return null;
-    if (v.len < 29 or !std.ascii.eqlIgnoreCase(v[25..29], " GMT")) return null;
+    // Require an exact IMF-fixix date. fetch() joins duplicate headers with ", ",
+    // and HTTP-dates themselves contain commas — rejecting trailing junk avoids
+    // treating the first of two joined dates as authoritative.
+    if (v.len != http_date_len or !std.ascii.eqlIgnoreCase(v[25..29], " GMT")) return null;
     if (day == 0 or day > 31 or hour > 23 or minute > 59 or second > 60) return null;
 
     const epoch = std.time.epoch;
@@ -455,6 +459,7 @@ fn respondSendFile(request: *http.Server.Request, file: std.Io.File, content_typ
             .extra_headers = &.{
                 .{ .name = "Content-Type", .value = content_type },
                 .{ .name = "Last-Modified", .value = last_modified },
+                .{ .name = "Cache-Control", .value = "no-store" },
             },
         },
     });
