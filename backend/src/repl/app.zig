@@ -1285,8 +1285,12 @@ pub fn run(opts: Options) !void {
     try app.norns.start();
     try app.sc.start();
 
-    app.scrollback(.norns).append("MAIDEN") catch {};
-    app.scrollback(.norns).append("tab: switch  ctrl-b: scripts  ctrl-shift-b: show/hide scripts  ctrl-p: play  ctrl-x: stop  ctrl-e: edit  ctrl-u: update  ctrl-n: new  ctrl-backspace: delete  ctrl-q: quit") catch {};
+    app.scrollback(.norns).append("                      █▄") catch {};
+    app.scrollback(.norns).append(" ▄              ▀▀    ██       ▄") catch {};
+    app.scrollback(.norns).append(" ███▄███▄ ▄▀▀█▄ ██ ▄████ ▄█▀█▄ ████▄") catch {};
+    app.scrollback(.norns).append(" ██ ██ ██ ▄█▀██ ██ ██ ██ ██▄█▀ ██ ██") catch {};
+    app.scrollback(.norns).append("▄██ ██ ▀█▄▀█▄██▄██▄█▀███▄▀█▄▄▄▄██ ▀█▄▄▄") catch {};
+    app.scrollback(.norns).append("  tab: switch\n  ctrl-b: scripts\n  ctrl-shift-b: show/hide scripts\n  ctrl-p: play\n  ctrl-x: stop\n  ctrl-e: edit\n  ctrl-u: update\n  ctrl-n: new\n  ctrl-backspace: delete\n  ctrl-q: quit") catch {};
 
     while (app.running) {
         drainSessions(&app);
