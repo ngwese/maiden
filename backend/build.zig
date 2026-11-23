@@ -28,6 +28,16 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const httpz = b.dependency("httpz", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // Share one websocket module with httpz. httpz otherwise pulls a second
+    // websocket package whose identical `build` options collide (zig#31613).
+    const websocket_mod = websocket.module("websocket");
+    const httpz_mod = httpz.module("httpz");
+    httpz_mod.addImport("websocket", websocket_mod);
 
     const root_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
@@ -37,9 +47,10 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "build_options", .module = options.createModule() },
             .{ .name = "zigtui", .module = zigtui.module("zigtui") },
-            .{ .name = "websocket", .module = websocket.module("websocket") },
+            .{ .name = "websocket", .module = websocket_mod },
             .{ .name = "clap", .module = clap.module("clap") },
             .{ .name = "yaml", .module = yaml.module("yaml") },
+            .{ .name = "httpz", .module = httpz_mod },
         },
     });
 

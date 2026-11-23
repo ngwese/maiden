@@ -20,6 +20,12 @@
             .url = "git+https://github.com/kmoneil/yaml.zig?ref=v0.3.0#2213c573b58a631730ff65b672e38f1f8697cbd5",
             .hash = "yaml-0.3.0-ToDgZ9K1CgBn9L36crhJTQKIJQmYp_x-YkK5tEa5gYij",
         },
+        // Fork of karlseguin/http.zig (branch maiden-patches): listen_fd, Reader EOF,
+        // exported setSockFlags, and websocket options uniquify.
+        .httpz = .{
+            .url = "git+https://github.com/ngwese/http.zig#fa94d390903ebed7b19768a371fade5ba16e3fc4",
+            .hash = "httpz-0.0.0-PNVzrC95CQAgY7y20mDOZmCGXs3w8BKz9U7uqeWyM1nm",
+        },
     },
     .paths = .{
         "build.zig",
