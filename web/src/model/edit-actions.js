@@ -1,4 +1,4 @@
-import api from '../api';
+import api, { readLastModified } from '../api';
 
 export const ROOT_LIST_REQUEST = 'ROOT_LIST_REQUEST';
 export const ROOT_LIST_SUCCESS = 'ROOT_LIST_SUCCESS';
@@ -18,6 +18,10 @@ export const BUFFER_SELECT = 'BUFFER_SELECT';
 export const BUFFER_SAVE_REQUEST = 'BUFFER_SAVE_REQUEST';
 export const BUFFER_SAVE_SUCCESS = 'BUFFER_SAVE_SUCCESS';
 export const BUFFER_SAVE_FAILURE = 'BUFFER_SAVE_FAILURE';
+
+export const BUFFER_MARK_STALE = 'BUFFER_MARK_STALE';
+export const BUFFER_DISMISS_STALE = 'BUFFER_DISMISS_STALE';
+export const BUFFER_CLEAR_STALE = 'BUFFER_CLEAR_STALE';
 
 export const SCRIPT_NEW = 'SCRIPT_NEW';
 export const SCRIPT_DUPLICATE = 'SCRIPT_DUPLICATE';
@@ -52,11 +56,12 @@ export const rootListFailure = (name, error) => ({ type: ROOT_LIST_FAILURE, name
 
 export const bufferReadRequest = resource => ({ type: BUFFER_READ_REQUEST, resource });
 
-export const bufferReadSuccess = (resource, value, contentType) => ({
+export const bufferReadSuccess = (resource, value, contentType, lastModified) => ({
   type: BUFFER_READ_SUCCESS,
   resource,
   value,
   contentType,
+  lastModified,
 });
 
 export const bufferReadFailure = (resource, error) => ({
@@ -85,10 +90,11 @@ export const bufferSaveRequest = (resource, value) => ({
   value,
 });
 
-export const bufferSaveSuccess = (resource, value) => ({
+export const bufferSaveSuccess = (resource, value, lastModified) => ({
   type: BUFFER_SAVE_SUCCESS,
   resource,
   value,
+  lastModified,
 });
 
 export const bufferSaveFailure = (resource, error) => ({
@@ -96,6 +102,12 @@ export const bufferSaveFailure = (resource, error) => ({
   resource,
   error,
 });
+
+export const bufferMarkStale = resource => ({ type: BUFFER_MARK_STALE, resource });
+
+export const bufferDismissStale = resource => ({ type: BUFFER_DISMISS_STALE, resource });
+
+export const bufferClearStale = resource => ({ type: BUFFER_CLEAR_STALE, resource });
 
 export const bufferChange = (resource, value) => ({ type: BUFFER_CHANGE, resource, value });
 
@@ -200,17 +212,18 @@ export const rootList = (rootName, cb) => dispatch => {
 
 export const bufferRead = resource => dispatch => {
   dispatch(bufferReadRequest(resource));
-  fetch(resource)
+  fetch(resource, { cache: 'no-store' })
     .then(response => {
       if (response.ok) {
         const contentType = response.headers.get('Content-Type');
+        const lastModified = readLastModified(response.headers);
         if (contentType.includes('text') || contentType.includes('application/json')) {
           response.text().then(content => {
-            dispatch(bufferReadSuccess(resource, content, contentType));
+            dispatch(bufferReadSuccess(resource, content, contentType, lastModified));
           });
         } else {
           response.blob().then(content => {
-            dispatch(bufferReadSuccess(resource, content, contentType));
+            dispatch(bufferReadSuccess(resource, content, contentType, lastModified));
           });
         }
       } else {
@@ -220,6 +233,32 @@ export const bufferRead = resource => dispatch => {
     .catch(error => {
       dispatch(bufferReadFailure(resource, error));
     });
+};
+
+// Returns a promise of true when the device copy is newer than the buffer stamp.
+export const bufferCheckStale = resource => (dispatch, getState) => {
+  const buffer = getState().edit.buffers.get(resource);
+  if (!buffer) {
+    return Promise.resolve(false);
+  }
+  const known = buffer.get('lastModified');
+  if (!known) {
+    return Promise.resolve(false);
+  }
+  return api
+    .headResource(resource)
+    .then(result => {
+      if (!result.ok || !result.lastModified) {
+        return false;
+      }
+      if (result.lastModified !== known) {
+        dispatch(bufferMarkStale(resource));
+        return true;
+      }
+      dispatch(bufferClearStale(resource));
+      return false;
+    })
+    .catch(() => false);
 };
 
 export const directoryRead = resource => dispatch => {
@@ -271,23 +310,44 @@ export const directoryReadRecursive = resource => async dispatch => {
   });
 };
 
-export const bufferSave = (resource, value, cb) => dispatch => {
+export const bufferSave = (resource, value, cb, options = {}) => (dispatch, getState) => {
   dispatch(bufferSaveRequest(resource, value));
-  return api.writeTextResource(resource, value, response => {
-    if (!response.ok) {
-      response
-        .json()
-        .then(data => {
-          dispatch(bufferSaveFailure(resource, data.error || response.statusText));
-        })
-        .catch(() => {
-          dispatch(bufferSaveFailure(resource, response.statusText));
-        });
-      return null;
-    }
-    dispatch(bufferSaveSuccess(resource, response.entity));
-    return cb ? cb() : null;
-  });
+  const buffer = getState().edit.buffers.get(resource);
+  const lastModified = options.force
+    ? undefined
+    : options.lastModified !== undefined
+      ? options.lastModified
+      : buffer && buffer.get('lastModified');
+  return api.writeTextResource(
+    resource,
+    value,
+    response => {
+      if (response.status === 412) {
+        return cb ? cb({ conflict: true }) : null;
+      }
+      if (!response.ok) {
+        response
+          .json()
+          .then(data => {
+            dispatch(bufferSaveFailure(resource, data.error || response.statusText));
+            if (cb) {
+              cb({ ok: false, error: data.error || response.statusText });
+            }
+          })
+          .catch(() => {
+            dispatch(bufferSaveFailure(resource, response.statusText));
+            if (cb) {
+              cb({ ok: false, error: response.statusText });
+            }
+          });
+        return null;
+      }
+      const savedLastModified = readLastModified(response.headers);
+      dispatch(bufferSaveSuccess(resource, response.entity, savedLastModified));
+      return cb ? cb({ ok: true, lastModified: savedLastModified }) : null;
+    },
+    { lastModified },
+  );
 };
 
 export const resourceDelete = (resource, cb) => dispatch => {

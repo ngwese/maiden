@@ -10,10 +10,12 @@ import { resourceToEditPath } from './url-utils';
 import {
   rootList,
   bufferRead,
+  bufferCheckStale,
   directoryRead,
   bufferSave,
   bufferChange,
   bufferSelect,
+  bufferDismissStale,
   scriptNew,
   scriptDuplicate,
   resourceDelete,
@@ -105,6 +107,10 @@ const mapDispatchToProps = dispatch => ({
   bufferRead: resource => {
     dispatch(bufferRead(resource));
   },
+  bufferCheckStale: resource => dispatch(bufferCheckStale(resource)),
+  bufferDismissStale: resource => {
+    dispatch(bufferDismissStale(resource));
+  },
   directoryRead: resource => {
     dispatch(directoryRead(resource));
   },
@@ -119,8 +125,8 @@ const mapDispatchToProps = dispatch => ({
       dispatch(pushHistory(path));
     }
   },
-  bufferSave: (resource, code, completionCB = () => {}) => {
-    dispatch(bufferSave(resource, code, completionCB));
+  bufferSave: (resource, code, completionCB = () => {}, options = {}) => {
+    dispatch(bufferSave(resource, code, completionCB, options));
   },
   scriptRun: resource => {
     const file = api.fileFromResource(resource);

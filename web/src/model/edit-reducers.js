@@ -24,6 +24,9 @@ import {
   BUFFER_SAVE_SUCCESS,
   BUFFER_SELECT,
   BUFFER_CHANGE,
+  BUFFER_MARK_STALE,
+  BUFFER_DISMISS_STALE,
+  BUFFER_CLEAR_STALE,
   SCRIPT_NEW,
   RESOURCE_DELETE_SUCCESS,
   SCRIPT_DUPLICATE,
@@ -55,9 +58,12 @@ edit: {
     activeBuffer: <url>,
     buffers: Map({
         <url>: {
-            url: <url>,p
-            modified: <bool>,
             value: <string>,
+            modified: <bool>,
+            contentType: <string>,
+            lastModified: <string|null>,
+            stale: <bool>,
+            staleDismissed: <bool>,
         }
     })
 }
@@ -280,6 +286,9 @@ const edit = (state = initialEditState, action) => {
             value: action.value,
             modified: false,
             contentType: action.contentType,
+            lastModified: action.lastModified || null,
+            stale: false,
+            staleDismissed: false,
           }),
         ),
       };
@@ -291,8 +300,18 @@ const edit = (state = initialEditState, action) => {
         rootNodes: spliceDirInfo(state.rootNodes, action.resource, fromJS(action.value.entries)),
       };
 
-    case BUFFER_SAVE_SUCCESS:
-      let savedBuffer = state.buffers.get(action.resource).set('modified', false);
+    case BUFFER_SAVE_SUCCESS: {
+      const existing = state.buffers.get(action.resource);
+      if (!existing) {
+        return state;
+      }
+      let savedBuffer = existing
+        .set('modified', false)
+        .set('stale', false)
+        .set('staleDismissed', false);
+      if (action.lastModified) {
+        savedBuffer = savedBuffer.set('lastModified', action.lastModified);
+      }
       if (savedBuffer.has('virtual')) {
         savedBuffer = savedBuffer.delete('virtual');
       }
@@ -300,6 +319,46 @@ const edit = (state = initialEditState, action) => {
         ...state,
         buffers: state.buffers.set(action.resource, savedBuffer),
       };
+    }
+
+    case BUFFER_MARK_STALE: {
+      const buffer = state.buffers.get(action.resource);
+      if (!buffer) {
+        return state;
+      }
+      return {
+        ...state,
+        buffers: state.buffers.set(
+          action.resource,
+          buffer.set('stale', true).set('staleDismissed', false),
+        ),
+      };
+    }
+
+    case BUFFER_DISMISS_STALE: {
+      const buffer = state.buffers.get(action.resource);
+      if (!buffer) {
+        return state;
+      }
+      return {
+        ...state,
+        buffers: state.buffers.set(action.resource, buffer.set('staleDismissed', true)),
+      };
+    }
+
+    case BUFFER_CLEAR_STALE: {
+      const buffer = state.buffers.get(action.resource);
+      if (!buffer) {
+        return state;
+      }
+      return {
+        ...state,
+        buffers: state.buffers.set(
+          action.resource,
+          buffer.set('stale', false).set('staleDismissed', false),
+        ),
+      };
+    }
 
     case BUFFER_SELECT:
       return { ...state, activeBuffer: action.resource };

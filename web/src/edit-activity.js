@@ -6,6 +6,7 @@ import Explorer from './explorer';
 import Editor from './editor';
 import ToolBar from './tool-bar';
 import IconButton from './icon-button';
+import ModalContent from './modal-content';
 import { ICONS } from './svg-icons';
 import { commandService } from './services';
 import OS from './utils';
@@ -13,6 +14,16 @@ import { bufferIsEditable, bufferIsAudio } from './model/edit-helpers';
 import ReplActivity from './bound-repl-activity';
 
 import './edit-activity.css';
+
+const STALE_BANNER_HEIGHT = 32;
+
+const resourceBasename = resource => {
+  if (!resource) {
+    return '';
+  }
+  const parts = String(resource).split('/').filter(Boolean);
+  return parts[parts.length - 1] || resource;
+};
 
 const tools = [
   {
@@ -81,6 +92,13 @@ class EditActivity extends Component {
     if (newActiveBuffer && !newBuffers.has(newActiveBuffer)) {
       // active buffer isn't (yet) loaded, trigger read
       this.props.bufferRead(newActiveBuffer);
+    } else if (
+      newActiveBuffer &&
+      newActiveBuffer !== activeBuffer &&
+      newBuffers.has(newActiveBuffer)
+    ) {
+      // switching back to an already-buffered file; check device mtime
+      this.props.bufferCheckStale(newActiveBuffer);
     }
   }
 
@@ -112,20 +130,25 @@ class EditActivity extends Component {
       : this.props.height - this.state.replHeight - 1;
   }
 
-  editorSize() {
+  showStaleBanner(buffer) {
+    return Boolean(buffer && buffer.get('stale') && !buffer.get('staleDismissed'));
+  }
+
+  editorSize(bannerVisible) {
     const sidebarWidth = this.getSidebarWidth();
     const toolbarWidth = this.state.toolbarWidth;
     const width = this.props.width - sidebarWidth - toolbarWidth - 1;
+    const height = this.getEditorHeight() - (bannerVisible ? STALE_BANNER_HEIGHT : 0);
     return {
       width,
-      height: this.getEditorHeight(),
+      height,
     };
   }
 
-  editorToolsSize() {
+  editorToolsSize(bannerVisible) {
     return {
       width: this.state.toolbarWidth,
-      height: this.getEditorHeight(),
+      height: this.getEditorHeight() - (bannerVisible ? STALE_BANNER_HEIGHT : 0),
     };
   }
 
@@ -162,6 +185,55 @@ class EditActivity extends Component {
 
   getActiveBuffer = () => this.props.buffers.get(this.props.activeBuffer);
 
+  saveActiveBuffer = (afterSave, options = {}) => {
+    const resource = this.props.activeBuffer;
+    const value = this.editor.getValue();
+    this.editor.bufferWillSave(resource);
+    this.props.bufferSave(
+      resource,
+      value,
+      result => {
+        if (result && result.conflict) {
+          const name = resourceBasename(resource);
+          this.props.showModal(
+            <ModalContent
+              message="File changed on device. Overwrite?"
+              supporting={name}
+              buttonAction={choice => {
+                this.props.hideModal();
+                if (choice === 'ok') {
+                  this.saveActiveBuffer(afterSave, { force: true });
+                }
+              }}
+            />,
+          );
+          return;
+        }
+        if (result && result.ok) {
+          this.editor.bufferWasSaved(resource);
+          if (afterSave) {
+            afterSave();
+          }
+        }
+      },
+      options,
+    );
+  };
+
+  handleStaleRefresh = () => {
+    const resource = this.props.activeBuffer;
+    if (resource) {
+      this.props.bufferRead(resource);
+    }
+  };
+
+  handleStaleDismiss = () => {
+    const resource = this.props.activeBuffer;
+    if (resource) {
+      this.props.bufferDismissStale(resource);
+    }
+  };
+
   handleToolInvoke = tool => {
     const buffer = this.getActiveBuffer();
     const resource = this.props.activeBuffer; // FIXME: this assumes the activeBuffer is a URL
@@ -178,22 +250,24 @@ class EditActivity extends Component {
 
     if (tool === 'save') {
       if (buffer.get('modified')) {
-        this.editor.bufferWillSave(resource);
-        this.props.bufferSave(resource, this.editor.getValue(), () => {
-          this.editor.bufferWasSaved(resource);
-        });
+        this.saveActiveBuffer();
+      } else {
+        // Clean buffer: HEAD and surface the refresh banner if the device copy moved on.
+        this.props.bufferCheckStale(resource);
       }
     } else if (tool === 'play') {
       if (buffer.get('modified')) {
-        // save, then run
-        this.editor.bufferWillSave(resource);
-        this.props.bufferSave(resource, this.editor.getValue(), () => {
-          this.editor.bufferWasSaved(resource);
+        // Dirty buffer: conditional PUT, then run.
+        this.saveActiveBuffer(() => {
           this.props.scriptRun(resource);
         });
       } else {
-        // not modified, just run
-        this.props.scriptRun(resource);
+        // Clean buffer: don't run a device script that differs from the editor view.
+        Promise.resolve(this.props.bufferCheckStale(resource)).then(stale => {
+          if (!stale) {
+            this.props.scriptRun(resource);
+          }
+        });
       }
     } else {
       // fallthrough behavior
@@ -232,30 +306,46 @@ class EditActivity extends Component {
     commandService.registerCommand('save', () => this.handleToolInvoke('save'));
     commandService.registerCommand('stop', () => this.handleToolInvoke('stop'));
 
+    const bannerVisible = this.showStaleBanner(buffer);
+    const staleBanner = bannerVisible ? (
+      <div className="stale-banner" style={{ height: STALE_BANNER_HEIGHT }}>
+        <span className="stale-banner-message">File changed on device since it was loaded</span>
+        <button type="button" className="stale-banner-action" onClick={this.handleStaleRefresh}>
+          Refresh
+        </button>
+        <button type="button" className="stale-banner-action" onClick={this.handleStaleDismiss}>
+          Dismiss
+        </button>
+      </div>
+    ) : null;
+
     // TODO: switch editor based on buffer content type
     const editor = (
-      <div className="editor-pane">
-        <Editor
-          className="editor-container"
-          ref={component => {
-            this.editor = component;
-          }}
-          {...this.editorSize()}
-          bufferName={activeBuffer}
-          toolInvoke={this.handleToolInvoke}
-          editorOptions={this.props.editorOptions}
-          sidebarToggle={this.props.sidebarToggle}
-          value={code}
-          bufferChange={this.props.bufferChange}
-          editorConfig={this.props.editorConfig}
-          selectionEval={this.props.selectionEval}
-        />
-        <EditTools
-          className="edit-tools"
-          {...this.editorToolsSize()}
-          tools={enabledTools}
-          buttonAction={this.handleToolInvoke}
-        />
+      <div className="editor-pane-wrap">
+        {staleBanner}
+        <div className="editor-pane">
+          <Editor
+            className="editor-container"
+            ref={component => {
+              this.editor = component;
+            }}
+            {...this.editorSize(bannerVisible)}
+            bufferName={activeBuffer}
+            toolInvoke={this.handleToolInvoke}
+            editorOptions={this.props.editorOptions}
+            sidebarToggle={this.props.sidebarToggle}
+            value={code}
+            bufferChange={this.props.bufferChange}
+            editorConfig={this.props.editorConfig}
+            selectionEval={this.props.selectionEval}
+          />
+          <EditTools
+            className="edit-tools"
+            {...this.editorToolsSize(bannerVisible)}
+            tools={enabledTools}
+            buttonAction={this.handleToolInvoke}
+          />
+        </div>
       </div>
     );
 

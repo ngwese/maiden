@@ -6,6 +6,20 @@ function apiPath(p) {
   return `${API_ROOT}/${p}`;
 }
 
+// fetch() joins duplicate headers with ", ", and IMF-fixix dates contain commas.
+// Prefer the last well-formed HTTP-date when multiple are present.
+export function readLastModified(headers) {
+  const raw = headers.get('Last-Modified');
+  if (!raw) {
+    return null;
+  }
+  const matches = raw.match(/[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT/g);
+  if (matches && matches.length > 0) {
+    return matches[matches.length - 1];
+  }
+  return raw;
+}
+
 export const DUST_CODE_RESOURCE = apiPath('dust/code');
 export const DUST_AUDIO_RESOURCE = apiPath('dust/audio');
 export const DUST_DATA_RESOURCE = apiPath('dust/data');
@@ -41,14 +55,28 @@ class API {
   }
 
   // https://stackoverflow.com/questions/40284338/react-fetch-delete-and-put-requests
-  static writeTextResource(resource, code, cb) {
+  static writeTextResource(resource, code, cb, options = {}) {
     const formData = new FormData();
     const codeBlob = new Blob([code], { type: 'text/utf-8' });
     formData.append('value', codeBlob);
+    const headers = {};
+    if (options.lastModified) {
+      headers['If-Unmodified-Since'] = options.lastModified;
+    }
     fetch(resource, {
       method: 'PUT',
       body: formData,
+      headers,
+      cache: 'no-store',
     }).then(cb);
+  }
+
+  static headResource(resource) {
+    return fetch(resource, { method: 'HEAD', cache: 'no-store' }).then(response => ({
+      ok: response.ok,
+      status: response.status,
+      lastModified: readLastModified(response.headers),
+    }));
   }
 
   static writeJSONResource(resource, code, cb) {

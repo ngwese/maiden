@@ -9,8 +9,48 @@
     height: 20px;
 }
 
+.editor-pane-wrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
 .editor-pane {
     display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.stale-banner {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 12px;
+    padding: 0 12px;
+    background-color: var(--stale-banner-background);
+    color: var(--stale-banner-color);
+    border-bottom: 1px solid var(--neutral-trim-default);
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.stale-banner-message {
+    flex: 1 1 auto;
+}
+
+.stale-banner-action {
+    background: none;
+    border: none;
+    color: var(--stale-banner-color);
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.stale-banner-action:hover {
+    color: var(--stale-banner-color);
+    opacity: 0.85;
 }
 
 .editor-pane-common {
