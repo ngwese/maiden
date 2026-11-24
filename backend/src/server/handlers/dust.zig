@@ -16,7 +16,10 @@ const body_read_timeout_ms: usize = 300_000;
 
 /// GET/HEAD /api/v1/dust and /api/v1/dust/*
 pub fn get(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
-    const name = dustName(req.url.path);
+    const name = dustName(res.arena, req.url.path) catch {
+        try respond.err(res, .bad_request, "invalid path");
+        return;
+    };
     const abs = dust.devicePath(res.arena, app.cfg.dust_path, name) catch |e| switch (e) {
         error.BadPath => {
             try respond.err(res, .bad_request, "invalid path");
@@ -58,7 +61,7 @@ pub fn get(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
     if (st.kind == .directory) {
         var n = name;
         if (n.len > 0 and n[0] == '/') n = n[1..];
-        const prefix = try std.fmt.allocPrint(res.arena, "/api/v1/dust/{s}", .{n});
+        const prefix = try dustUrlPrefix(res.arena, n);
         const entries = try dust.listDir(res.arena, abs, prefix);
         const body = try formatDirListing(res.arena, n, prefix, entries);
         var lm_buf: [respond.http_date_len]u8 = undefined;
@@ -81,7 +84,10 @@ pub fn get(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
 
 /// PUT /api/v1/dust and /api/v1/dust/*
 pub fn put(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
-    const name = dustName(req.url.path);
+    const name = dustName(res.arena, req.url.path) catch {
+        try respond.err(res, .bad_request, "invalid path");
+        return;
+    };
     const abs = dust.devicePath(res.arena, app.cfg.dust_path, name) catch |e| switch (e) {
         error.BadPath => {
             try respond.err(res, .bad_request, "invalid path");
@@ -166,7 +172,10 @@ pub fn put(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
 
 /// PATCH /api/v1/dust and /api/v1/dust/* — rename via form field `name`.
 pub fn patch(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
-    const name = dustName(req.url.path);
+    const name = dustName(res.arena, req.url.path) catch {
+        try respond.err(res, .bad_request, "invalid path");
+        return;
+    };
     const abs = dust.devicePath(res.arena, app.cfg.dust_path, name) catch |e| switch (e) {
         error.BadPath => {
             try respond.err(res, .bad_request, "invalid path");
@@ -219,7 +228,10 @@ pub fn patch(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
 
 /// DELETE /api/v1/dust and /api/v1/dust/*
 pub fn delete(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
-    const name = dustName(req.url.path);
+    const name = dustName(res.arena, req.url.path) catch {
+        try respond.err(res, .bad_request, "invalid path");
+        return;
+    };
     const abs = dust.devicePath(res.arena, app.cfg.dust_path, name) catch |e| switch (e) {
         error.BadPath => {
             try respond.err(res, .bad_request, "invalid path");
@@ -240,10 +252,23 @@ pub fn delete(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
     try respond.msg(res, .ok, text);
 }
 
-fn dustName(path: []const u8) []const u8 {
+/// Relative dust path from the request URL, percent-decoded once.
+fn dustName(allocator: std.mem.Allocator, path: []const u8) error{ InvalidEscape, OutOfMemory }![]const u8 {
     const prefix = "/api/v1/dust";
-    if (path.len > prefix.len) return path[prefix.len..];
-    return "";
+    const raw = if (path.len > prefix.len) path[prefix.len..] else "";
+    if (raw.len == 0) return "";
+    return try urlx.percentDecodePath(allocator, raw);
+}
+
+/// Percent-encode each segment of a decoded relative path under `/api/v1/dust`.
+fn dustUrlPrefix(allocator: std.mem.Allocator, relative: []const u8) ![]u8 {
+    var parts: std.ArrayListUnmanaged([]const u8) = .empty;
+    var it = std.mem.splitScalar(u8, relative, '/');
+    while (it.next()) |part| {
+        if (part.len == 0) continue;
+        try parts.append(allocator, part);
+    }
+    return try dust.resourcePath(allocator, "/api/v1/dust", parts.items);
 }
 
 fn formatDirListing(allocator: std.mem.Allocator, path: []const u8, url: []const u8, entries: []const dust.FileInfo) ![]u8 {

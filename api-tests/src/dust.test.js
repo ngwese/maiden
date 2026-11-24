@@ -171,6 +171,30 @@ describe('dust api', () => {
       expect(status).toBe(404);
       expect(body).toEqual(expect.objectContaining({ error: expect.any(String) }));
     });
+
+    it('GET and DELETE work for filenames with #', async () => {
+      const dir = ws.path('hash-parent');
+      await ensureDir(dir);
+      const encoded = `${dir}/${encodeURIComponent('#awake.lua#')}`;
+      const content = '-- emacs autosave\n';
+      await writeFile(encoded, content, '#awake.lua#');
+
+      const listing = await json(`/api/v1/dust/${dir}`);
+      expect(listing.status).toBe(200);
+      const entry = listing.body.entries.find(e => e.name === '#awake.lua#');
+      expect(entry).toBeTruthy();
+      expect(entry.url).toMatch(/%23awake\.lua%23$/);
+
+      const got = await request(`/api/v1/dust/${encoded}`);
+      expect(got.status).toBe(200);
+      expect(got.body).toBe(content);
+
+      const deleted = await json(`/api/v1/dust/${encoded}`, { method: 'DELETE' });
+      expect(deleted.status).toBe(200);
+
+      const gone = await json(`/api/v1/dust/${encoded}`);
+      expect(gone.status).toBe(404);
+    });
   });
 
   describe('Last-Modified and HEAD', () => {

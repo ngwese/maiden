@@ -11,6 +11,16 @@ describe('siblingResourceForName', () => {
     expect(r).toEqual('/api/v1/scripts/one%20two.lua');
   });
 
+  it('should escape hash in filename', () => {
+    const r = api.siblingResourceForName('#awake.lua#');
+    expect(r).toEqual('/api/v1/scripts/%23awake.lua%23');
+  });
+
+  it('childResourceForName escapes hash', () => {
+    const r = api.childResourceForName('#awake.lua#', '/api/v1/dust/code/awake');
+    expect(r).toEqual('/api/v1/dust/code/awake/%23awake.lua%23');
+  });
+
   it('root sibling should match no sibling', () => {
     const r = api.siblingResourceForName('untitled.lua');
     const q = api.siblingResourceForName('untitled.lua', '/api/v1/scripts/foo.lua');

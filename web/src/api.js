@@ -43,11 +43,11 @@ class API {
       // FIXME: this assumes siblingResource is absolute and lacks an authority
       resourceBase = `${parsePath(siblingResource).dirname}/`;
     }
-    return resourceBase + encodeURI(name);
+    return resourceBase + encodeURIComponent(name);
   }
 
   static childResourceForName(name, parentResource) {
-    return `${parentResource}/${encodeURI(name)}`;
+    return `${parentResource}/${encodeURIComponent(name)}`;
   }
 
   static listRoot(resourceRoot, cb) {

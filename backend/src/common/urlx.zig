@@ -21,6 +21,17 @@ pub fn percentEncodeWrite(w: *std.Io.Writer, input: []const u8) std.Io.Writer.Er
 /// A `%` not followed by two hex digits returns `error.InvalidEscape`.
 /// Caller frees the result.
 pub fn percentDecode(allocator: std.mem.Allocator, input: []const u8) error{ InvalidEscape, OutOfMemory }![]u8 {
+    return percentDecodeInner(allocator, input, true);
+}
+
+/// Decode `%XX` in a URL path. Unlike `percentDecode`, a bare `+` stays `+`.
+/// A `%` not followed by two hex digits returns `error.InvalidEscape`.
+/// Caller frees the result.
+pub fn percentDecodePath(allocator: std.mem.Allocator, input: []const u8) error{ InvalidEscape, OutOfMemory }![]u8 {
+    return percentDecodeInner(allocator, input, false);
+}
+
+fn percentDecodeInner(allocator: std.mem.Allocator, input: []const u8, plus_as_space: bool) error{ InvalidEscape, OutOfMemory }![]u8 {
     var i: usize = 0;
     while (i < input.len) : (i += 1) {
         if (input[i] != '%') continue;
@@ -31,8 +42,10 @@ pub fn percentDecode(allocator: std.mem.Allocator, input: []const u8) error{ Inv
 
     const buf = try allocator.dupe(u8, input);
     errdefer allocator.free(buf);
-    for (buf) |*c| {
-        if (c.* == '+') c.* = ' ';
+    if (plus_as_space) {
+        for (buf) |*c| {
+            if (c.* == '+') c.* = ' ';
+        }
     }
     const decoded = std.Uri.percentDecodeInPlace(buf);
     if (decoded.ptr != buf.ptr) std.mem.copyForwards(u8, buf[0..decoded.len], decoded);
@@ -57,4 +70,16 @@ test "percentDecode converts plus and rejects a bare percent" {
     try std.testing.expectEqualStrings("a b/c", decoded);
     try std.testing.expectError(error.InvalidEscape, percentDecode(std.testing.allocator, "%"));
     try std.testing.expectError(error.InvalidEscape, percentDecode(std.testing.allocator, "%zz"));
+}
+
+test "percentDecodePath decodes hash and keeps plus" {
+    const hash = try percentDecodePath(std.testing.allocator, "%23awake.lua%23");
+    defer std.testing.allocator.free(hash);
+    try std.testing.expectEqualStrings("#awake.lua#", hash);
+
+    const plus = try percentDecodePath(std.testing.allocator, "a+b%20c");
+    defer std.testing.allocator.free(plus);
+    try std.testing.expectEqualStrings("a+b c", plus);
+
+    try std.testing.expectError(error.InvalidEscape, percentDecodePath(std.testing.allocator, "%"));
 }
