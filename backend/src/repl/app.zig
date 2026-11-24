@@ -264,11 +264,11 @@ const App = struct {
     terminal: *zigtui.Terminal,
 
     fn scrollback(self: *App, c: repl_api.Component) *Scrollback {
-        return &self.scrollbacks[@intFromEnum(c)];
+        return &self.scrollbacks[@backingInt(c)];
     }
 
     fn history(self: *App, c: repl_api.Component) *History {
-        return &self.histories[@intFromEnum(c)];
+        return &self.histories[@backingInt(c)];
     }
 
     fn session(self: *App, c: repl_api.Component) *repl_session.Session {
@@ -859,7 +859,7 @@ fn handleMouse(app: *App, mouse: zigtui.MouseEvent) void {
 fn handleMouseClick(app: *App, x: u16, y: u16) void {
     if (app.layout.tabs.contains(x, y)) {
         const titles = [_][]const u8{ "norns", "supercollider" };
-        const tabs = zigtui.Tabs{ .titles = &titles, .selected = @intFromEnum(app.active) };
+        const tabs = zigtui.Tabs{ .titles = &titles, .selected = @backingInt(app.active) };
         if (tabs.hitTest(app.layout.tabs, x, y)) |idx| {
             if (idx == 0) {
                 app.active = .norns;
@@ -990,6 +990,18 @@ fn drainSessions(app: *App) void {
     results.clearRetainingCapacity();
 }
 
+/// Blank a rectangle so overlays (dialogs) are opaque over existing content.
+/// zigtui Block/Popup only apply style and leave prior characters in place.
+fn clearRect(buf: *zigtui.Buffer, area: zigtui.Rect) void {
+    var y = area.y;
+    while (y < area.y + area.height) : (y += 1) {
+        var x = area.x;
+        while (x < area.x + area.width) : (x += 1) {
+            buf.setChar(x, y, ' ', .{});
+        }
+    }
+}
+
 fn renderApp(app: *App, buf: *zigtui.Buffer) !void {
     const area = buf.getArea();
     var rows: [4]zigtui.Rect = undefined;
@@ -1007,7 +1019,7 @@ fn renderApp(app: *App, buf: *zigtui.Buffer) !void {
     const titles = [_][]const u8{ "norns", "supercollider" };
     const tabs = zigtui.Tabs{
         .titles = &titles,
-        .selected = @intFromEnum(app.active),
+        .selected = @backingInt(app.active),
         .selected_style = .{ .fg = .black, .bg = .cyan },
         .unselected_style = .{ .fg = .white },
     };
@@ -1140,11 +1152,15 @@ fn renderApp(app: *App, buf: *zigtui.Buffer) !void {
             .show_backdrop = true,
         };
         const dlg_area = zigtui.Dialog.dialogArea(area, 56, 9);
+        // zigtui Popup/Block only restyle cells; clear underlying characters so scrollback
+        // does not bleed through empty dialog regions.
+        clearRect(buf, dlg_area);
         dialog.render(dlg_area, buf);
     }
 
     if (app.name_prompt) |*prompt| {
         const dlg_area = zigtui.Dialog.dialogArea(area, 48, 8);
+        clearRect(buf, dlg_area);
         const popup = zigtui.Popup{
             .title = " new script ",
             .border_style = .{ .fg = .cyan },
