@@ -40,6 +40,14 @@ import {
 } from './edit-actions';
 
 import { bufferIsEditable } from './edit-helpers';
+import {
+  projectForResource,
+  renameLoadedResourcesBelow,
+  rewriteListingUrlsBelow,
+  rewriteExpandedNodesBelow,
+  rewriteResourceBelow,
+  resourceIsBelow,
+} from './buffer-project';
 
 import api, { DUST_CODE_RESOURCE } from '../api';
 import { UNTITLED_SCRIPT } from '../constants';
@@ -64,6 +72,7 @@ edit: {
             lastModified: <string|null>,
             stale: <bool>,
             staleDismissed: <bool>,
+            project: <string|null>,
         }
     })
 }
@@ -111,6 +120,7 @@ const handleScriptNew = (action, state) => {
     modified: true,
     value: action.value || '',
     contentType: 'text/utf-8',
+    project: projectForResource(newResource),
   });
 
   const newNode = virtualNode(newName, newResource);
@@ -247,19 +257,40 @@ const handleResourceRenameSuccess = (action, state) => {
 
   rootNodes = sortDir(rootNodes, dirPath);
 
-  // update active buffer if pointing at the renamed resource
-  const activeBuffer = state.activeBuffer === action.resource ? newResource : state.activeBuffer;
+  // Rewrite descendant listing URLs under the renamed path.
+  rootNodes = rewriteListingUrlsBelow(rootNodes, action.resource, newResource);
 
-  // buffers are keyed by resource, modify that too
-  const buffers = state.buffers
-    .set(newResource, state.buffers.get(action.resource))
-    .delete(action.resource);
+  // Move the renamed resource's own buffer only when that key exists.
+  let buffers = state.buffers;
+  const ownBuffer = buffers.get(action.resource);
+  if (ownBuffer !== undefined) {
+    buffers = buffers
+      .set(newResource, ownBuffer.set('project', projectForResource(newResource)))
+      .delete(action.resource);
+  }
+
+  // Rebuild URIs for any loaded buffers strictly below the renamed path.
+  buffers = renameLoadedResourcesBelow(buffers, action.resource, newResource);
+
+  let activeBuffer = state.activeBuffer;
+  if (activeBuffer === action.resource) {
+    activeBuffer = newResource;
+  } else if (resourceIsBelow(activeBuffer, action.resource)) {
+    activeBuffer = rewriteResourceBelow(activeBuffer, action.resource, newResource);
+  }
+
+  const expandedNodes = rewriteExpandedNodesBelow(
+    state.expandedNodes,
+    action.resource,
+    newResource,
+  );
 
   return {
     ...state,
     activeBuffer,
     rootNodes,
     buffers,
+    expandedNodes,
     activeNode: newResource,
   };
 };
@@ -289,6 +320,7 @@ const edit = (state = initialEditState, action) => {
             lastModified: action.lastModified || null,
             stale: false,
             staleDismissed: false,
+            project: projectForResource(action.resource),
           }),
         ),
       };

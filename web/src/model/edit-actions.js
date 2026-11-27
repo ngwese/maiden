@@ -1,4 +1,9 @@
 import api, { readLastModified } from '../api';
+import {
+  buffersForProject,
+  sortBuffersByHierarchyDepth,
+  resourceBasename,
+} from './buffer-project';
 
 export const ROOT_LIST_REQUEST = 'ROOT_LIST_REQUEST';
 export const ROOT_LIST_SUCCESS = 'ROOT_LIST_SUCCESS';
@@ -351,6 +356,59 @@ export const bufferSave =
       { lastModified },
     );
   };
+
+// Save all text buffers for a project deepest-first; stop on conflict or failure.
+export const saveProjectBuffers = (project) => async (dispatch, getState) => {
+  const projectBuffers = buffersForProject(getState().edit.buffers, project);
+  const textBuffers = projectBuffers.filter((buffer) => typeof buffer.get('value') === 'string');
+  const ordered = sortBuffersByHierarchyDepth(textBuffers);
+  const results = [];
+
+  for (const [resource, buffer] of ordered) {
+    // Saves must be sequential so a conflict can stop the remaining files.
+    // eslint-disable-next-line no-await-in-loop
+    const result = await new Promise((resolve) => {
+      dispatch(bufferSave(resource, buffer.get('value'), resolve));
+    });
+    results.push({ resource, ...(result || {}) });
+    if (!result || result.conflict || result.ok === false) {
+      break;
+    }
+  }
+
+  return results;
+};
+
+// HEAD every loaded project buffer and return those whose on-disk Last-Modified moved.
+export const projectBuffersChangedOnDisk = (project) => async (dispatch, getState) => {
+  const projectBuffers = buffersForProject(getState().edit.buffers, project);
+  const ordered = sortBuffersByHierarchyDepth(projectBuffers);
+
+  const checks = await Promise.all(
+    ordered.map(async ([resource, buffer]) => {
+      const known = buffer.get('lastModified');
+      if (!known) {
+        return null;
+      }
+      try {
+        const result = await api.headResource(resource);
+        if (!result.ok || !result.lastModified) {
+          return null;
+        }
+        if (result.lastModified !== known) {
+          dispatch(bufferMarkStale(resource));
+          return { resource, name: resourceBasename(resource) };
+        }
+        dispatch(bufferClearStale(resource));
+        return null;
+      } catch (e) {
+        return null;
+      }
+    }),
+  );
+
+  return checks.filter(Boolean);
+};
 
 export const resourceDelete = (resource, cb) => (dispatch) => {
   dispatch(resourceDeleteRequest(resource));
