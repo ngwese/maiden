@@ -72,6 +72,10 @@
   min-height: 0;
 }
 
+.explorer-section-tree.is-collapsed-pane {
+  display: none;
+}
+
 .explorer-section-tree > .scroll-area-viewport {
   padding-left: 8px;
 }

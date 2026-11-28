@@ -111,6 +111,7 @@ class Section extends Component {
       });
     };
     if (!this.isCollapsed()) {
+      this.hasBeenExpanded = true;
       this.maybeLoadDirectory();
     }
   }
@@ -121,6 +122,9 @@ class Section extends Component {
 
   componentDidUpdate(prevProps) {
     const wasCollapsed = prevProps.collapsedCategories.has(prevProps.sectionNode.url);
+    if (!this.isCollapsed()) {
+      this.hasBeenExpanded = true;
+    }
     if (wasCollapsed && !this.isCollapsed()) {
       this.maybeLoadDirectory();
     }
@@ -491,17 +495,17 @@ class Section extends Component {
     const useFixedHeight =
       !isCollapsed && !this.props.isLastExpanded && this.props.lockHeights && storedHeight;
 
-    let tree;
-    if (!isCollapsed) {
-      tree = (
-        <Tree
-          style={treeStyle}
-          data={data}
-          onToggle={this.onToggle}
-          decorators={explorerDecorators}
-        />
-      );
-    }
+    // Keep the scroll pane mounted after the first expand so scrollTop survives
+    // collapse/show cycles (display:none preserves scroll position).
+    const keepScrollPane = !isCollapsed || this.hasBeenExpanded;
+    const tree = keepScrollPane ? (
+      <Tree
+        style={treeStyle}
+        data={data}
+        onToggle={this.onToggle}
+        decorators={explorerDecorators}
+      />
+    ) : null;
 
     let sectionStyle;
     if (this.props.isLastExpanded && !isCollapsed) {
@@ -553,7 +557,13 @@ class Section extends Component {
           onDragLeave={this.onDragLeave}
           onDrop={this.onDrop}
         />
-        {!isCollapsed ? <ScrollArea className="explorer-section-tree">{tree}</ScrollArea> : null}
+        {keepScrollPane ? (
+          <ScrollArea
+            className={cx('explorer-section-tree', { 'is-collapsed-pane': isCollapsed })}
+          >
+            {tree}
+          </ScrollArea>
+        ) : null}
       </div>
     );
   }
