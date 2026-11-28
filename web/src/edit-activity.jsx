@@ -498,9 +498,7 @@ class EditActivity extends Component {
             collapsedCategories={this.props.collapsedCategories}
             sectionOrder={this.props.sectionOrder}
             sectionHeights={this.props.sectionHeights}
-            autoHideSections={
-              this.props.editorOptions && this.props.editorOptions.autoHideSections
-            }
+            autoHideSections={this.props.editorOptions && this.props.editorOptions.autoHideSections}
             explorerToggleCategory={this.props.explorerToggleCategory}
             explorerReorderSections={this.props.explorerReorderSections}
             explorerSetSectionHeights={this.props.explorerSetSectionHeights}

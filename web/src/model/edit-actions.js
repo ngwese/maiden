@@ -1,9 +1,5 @@
 import api, { readLastModified } from '../api';
-import {
-  buffersForProject,
-  sortBuffersByHierarchyDepth,
-  resourceBasename,
-} from './buffer-project';
+import { buffersForProject, sortBuffersByHierarchyDepth, resourceBasename } from './buffer-project';
 
 export const ROOT_LIST_REQUEST = 'ROOT_LIST_REQUEST';
 export const ROOT_LIST_SUCCESS = 'ROOT_LIST_SUCCESS';

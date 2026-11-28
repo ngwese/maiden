@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import linkifyText from './linkify-text';
+import ScrollArea from './components/scroll-area';
 import './repl.css';
 
 class ReplOutput extends Component {
@@ -36,9 +37,9 @@ class ReplOutput extends Component {
 
     // this.isScrolledBottom()
     return (
-      <div className="repl-output" ref={(elem) => (this.output = elem)}>
+      <ScrollArea className="repl-output" viewportRef={(elem) => (this.output = elem)}>
         {lines}
-      </div>
+      </ScrollArea>
     );
   }
 }

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SECTION_ORDER } from './ui-actions';
 import { moveSectionInOrder, orderSections } from './section-order';
 
-const sections = (names) => names.map((name) => ({ name, url: `/api/v1/dust/${name}`, children: [] }));
+const sections = (names) =>
+  names.map((name) => ({ name, url: `/api/v1/dust/${name}`, children: [] }));
 
 describe('orderSections', () => {
   it('orders code, audio, data before unmatched when using the default list', () => {

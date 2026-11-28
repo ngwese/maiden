@@ -26,6 +26,10 @@
   /* critical (#975031) darkened 10% toward black; text from light surface */
   --stale-banner-background: #87482c;
   --stale-banner-color: #f7f7f7;
+  /* Monaco/VS Code style overlay scrollbar */
+  --scrollbar-slider-background: rgba(100, 100, 100, 0.4);
+  --scrollbar-slider-hover-background: rgba(100, 100, 100, 0.7);
+  --scrollbar-slider-active-background: rgba(0, 0, 0, 0.6);
 }
 
 :root[data-theme='dark'] {
@@ -56,6 +60,9 @@
   /* critical (#975031) lightened 10% toward white */
   --stale-banner-background: #a16145;
   --stale-banner-color: #000000;
+  --scrollbar-slider-background: rgba(121, 121, 121, 0.4);
+  --scrollbar-slider-hover-background: rgba(100, 100, 100, 0.7);
+  --scrollbar-slider-active-background: rgba(191, 191, 191, 0.4);
 }
 
 *::-webkit-scrollbar {

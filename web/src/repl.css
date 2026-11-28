@@ -19,13 +19,15 @@
 
 .repl-output {
   flex: 1 1 auto;
+  min-height: 0;
   margin: 0px 0px 0px 5px;
   color: rgb(117, 117, 117);
-  overflow: overlay;
-  overflow-x: hidden;
-  /* display: flex; */
-  /* flex-direction: row */
   font-family: monospace;
+}
+
+.repl-output > .scroll-area-viewport {
+  color: inherit;
+  font-family: inherit;
 }
 
 .repl-line {

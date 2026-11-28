@@ -33,6 +33,7 @@
   height: 8px;
   cursor: row-resize;
   z-index: 2;
+  touch-action: none;
 }
 
 .explorer-section-resize:hover,
@@ -69,9 +70,10 @@
 .explorer-section-tree {
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.explorer-section-tree > .scroll-area-viewport {
   padding-left: 8px;
-  overflow-x: hidden;
-  overflow-y: auto;
 }
 
 .explorer-loose-tree {

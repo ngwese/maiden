@@ -12,6 +12,8 @@ import api, { isProtectedResource } from './api';
 import { USER_DATA_PATH } from './constants';
 import { moveSectionInOrder, orderSections } from './model/section-order';
 import { MIN_SECTION_HEIGHT } from './model/ui-actions';
+import ScrollArea from './components/scroll-area';
+import { ensurePanelGestureGuard } from './panel-gesture-guard';
 
 const SECTION_DRAG_TYPE = 'application/x-maiden-section';
 
@@ -73,6 +75,7 @@ const SectionHeader = (props) => {
       {props.canResize ? (
         <div
           className="explorer-section-resize"
+          data-panel-gesture-block
           onPointerDown={props.onResizePointerDown}
           onClick={(e) => e.stopPropagation()}
           draggable={false}
@@ -96,6 +99,7 @@ class Section extends Component {
   }
 
   componentDidMount() {
+    ensurePanelGestureGuard();
     this.section.onmouseenter = () => {
       this.setState({
         showTools: true,
@@ -123,13 +127,22 @@ class Section extends Component {
   }
 
   endResizeListeners = () => {
+    if (this.capturedResizeTarget && this.capturedResizePointerId != null) {
+      try {
+        this.capturedResizeTarget.releasePointerCapture(this.capturedResizePointerId);
+      } catch (err) {
+        // Pointer may already have been released.
+      }
+      this.capturedResizeTarget = null;
+      this.capturedResizePointerId = null;
+    }
     if (this.resizeMove) {
-      window.removeEventListener('pointermove', this.resizeMove);
+      window.removeEventListener('pointermove', this.resizeMove, true);
       this.resizeMove = null;
     }
     if (this.resizeUp) {
-      window.removeEventListener('pointerup', this.resizeUp);
-      window.removeEventListener('pointercancel', this.resizeUp);
+      window.removeEventListener('pointerup', this.resizeUp, true);
+      window.removeEventListener('pointercancel', this.resizeUp, true);
       this.resizeUp = null;
     }
   };
@@ -198,11 +211,20 @@ class Section extends Component {
       (this.section && Math.round(this.section.getBoundingClientRect().height)) ||
       MIN_SECTION_HEIGHT;
     const startPrev = startHeights[prevName] || MIN_SECTION_HEIGHT;
+    const target = event.currentTarget;
+
+    if (target && target.setPointerCapture) {
+      target.setPointerCapture(event.pointerId);
+      this.capturedResizeTarget = target;
+      this.capturedResizePointerId = event.pointerId;
+    }
 
     this.resizeMoved = false;
     this.setState({ resizing: true });
 
     this.resizeMove = (moveEvent) => {
+      moveEvent.preventDefault();
+      moveEvent.stopPropagation();
       const delta = Math.round(moveEvent.clientY - startY);
       if (Math.abs(delta) > 2) {
         this.resizeMoved = true;
@@ -233,7 +255,11 @@ class Section extends Component {
       }
     };
 
-    this.resizeUp = () => {
+    this.resizeUp = (upEvent) => {
+      if (upEvent) {
+        upEvent.preventDefault();
+        upEvent.stopPropagation();
+      }
       this.endResizeListeners();
       this.setState({ resizing: false });
       window.setTimeout(() => {
@@ -241,9 +267,9 @@ class Section extends Component {
       }, 0);
     };
 
-    window.addEventListener('pointermove', this.resizeMove);
-    window.addEventListener('pointerup', this.resizeUp);
-    window.addEventListener('pointercancel', this.resizeUp);
+    window.addEventListener('pointermove', this.resizeMove, true);
+    window.addEventListener('pointerup', this.resizeUp, true);
+    window.addEventListener('pointercancel', this.resizeUp, true);
   };
 
   onDragStart = (event) => {
@@ -459,15 +485,11 @@ class Section extends Component {
   render() {
     const data = this.props.sectionNode.children || [];
     const isCollapsed = this.isCollapsed();
-    const storedHeight =
-      this.props.sectionHeights && this.props.sectionHeights[this.props.name];
+    const storedHeight = this.props.sectionHeights && this.props.sectionHeights[this.props.name];
     // Non-last expanded sections lock to pixel heights when multiple are open.
     // The last expanded section always grows to fill the remaining panel space.
     const useFixedHeight =
-      !isCollapsed &&
-      !this.props.isLastExpanded &&
-      this.props.lockHeights &&
-      storedHeight;
+      !isCollapsed && !this.props.isLastExpanded && this.props.lockHeights && storedHeight;
 
     let tree;
     if (!isCollapsed) {
@@ -530,7 +552,7 @@ class Section extends Component {
           onDragLeave={this.onDragLeave}
           onDrop={this.onDrop}
         />
-        {!isCollapsed ? <div className="explorer-section-tree">{tree}</div> : null}
+        {!isCollapsed ? <ScrollArea className="explorer-section-tree">{tree}</ScrollArea> : null}
       </div>
     );
   }
@@ -688,14 +710,14 @@ class Explorer extends Component {
         ref={(elem) => (this.explorer = elem)}
       >
         {looseNodes.length > 0 ? (
-          <div className="explorer-section-tree explorer-loose-tree">
+          <ScrollArea className="explorer-section-tree explorer-loose-tree">
             <Tree
               style={treeStyle}
               data={looseNodes}
               onToggle={this.onLooseToggle}
               decorators={explorerDecorators}
             />
-          </div>
+          </ScrollArea>
         ) : null}
         {sectionNodes.map((sectionNode, index) => {
           const isExpanded = !(
@@ -705,12 +727,9 @@ class Explorer extends Component {
           if (isExpanded) {
             for (let i = index - 1; i >= 0; i -= 1) {
               const candidate = sectionNodes[i];
-              if (
-                !(
-                  this.props.collapsedCategories &&
-                  this.props.collapsedCategories.has(candidate.url)
-                )
-              ) {
+              if (!(
+                this.props.collapsedCategories && this.props.collapsedCategories.has(candidate.url)
+              )) {
                 prevExpandedName = candidate.name;
                 break;
               }

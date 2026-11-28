@@ -1,0 +1,68 @@
+.scroll-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scroll-area-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  /* Hide native scrollbars; the custom rail is the only chrome. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-area-viewport::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Monaco-like vertical scrollbar overlay */
+.scroll-area-rail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 11;
+  transition: opacity 800ms linear;
+}
+
+.scroll-area-rail.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 100ms linear;
+}
+
+.scroll-area-rail.is-fading {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 800ms linear;
+}
+
+.scroll-area-thumb {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  min-height: 20px;
+  border-radius: 0;
+  background: var(--scrollbar-slider-background);
+  cursor: default;
+  box-sizing: border-box;
+  touch-action: none;
+}
+
+.scroll-area-thumb:hover {
+  background: var(--scrollbar-slider-hover-background);
+}
+
+.scroll-area-thumb.is-active,
+.scroll-area-thumb.is-active:hover {
+  background: var(--scrollbar-slider-active-background);
+}
