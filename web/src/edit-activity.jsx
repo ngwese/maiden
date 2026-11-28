@@ -502,6 +502,7 @@ class EditActivity extends Component {
             explorerToggleCategory={this.props.explorerToggleCategory}
             explorerReorderSections={this.props.explorerReorderSections}
             explorerSetSectionHeights={this.props.explorerSetSectionHeights}
+            explorerCollapseSections={this.props.explorerCollapseSections}
             explorerToggleNode={this.props.explorerToggleNode}
             explorerActiveNode={this.props.explorerActiveNode}
             activeBuffer={activeBuffer}

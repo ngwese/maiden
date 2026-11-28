@@ -11,6 +11,8 @@ export const REORDER_SECTIONS = 'REORDER_SECTIONS';
 
 export const SET_SECTION_HEIGHTS = 'SET_SECTION_HEIGHTS';
 
+export const COLLAPSE_SECTIONS = 'COLLAPSE_SECTIONS';
+
 // Default explorer section order. "*" matches any section not listed by name.
 export const DEFAULT_SECTION_ORDER = ['code', 'audio', 'data', '*'];
 
@@ -41,3 +43,6 @@ export const reorderSections = (order) => ({ type: REORDER_SECTIONS, order });
 
 // heights: { [sectionName]: number } pixel heights for expanded sections
 export const setSectionHeights = (heights) => ({ type: SET_SECTION_HEIGHTS, heights });
+
+// Collapse the given section URLs (no-op for URLs already collapsed).
+export const collapseSections = (urls) => ({ type: COLLAPSE_SECTIONS, urls });

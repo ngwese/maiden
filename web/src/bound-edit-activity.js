@@ -35,6 +35,7 @@ import {
   toggleCategory,
   reorderSections,
   setSectionHeights,
+  collapseSections,
 } from './model/ui-actions';
 
 import { replSend } from './model/repl-actions';
@@ -202,6 +203,9 @@ const mapDispatchToProps = (dispatch) => ({
   },
   explorerSetSectionHeights: (heights) => {
     dispatch(setSectionHeights(heights));
+  },
+  explorerCollapseSections: (urls) => {
+    dispatch(collapseSections(urls));
   },
 
   // editor

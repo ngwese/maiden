@@ -616,9 +616,17 @@ class Explorer extends Component {
   constructor(props) {
     super(props);
     this.sectionRefs = {};
+    // Track section URLs we have already applied the default collapse policy to.
+    this.seenSectionUrls = new Set();
+  }
+
+  componentDidMount() {
+    this.collapseNewNonCodeSections();
   }
 
   componentDidUpdate(prevProps) {
+    this.collapseNewNonCodeSections();
+
     const collapsedChanged = prevProps.collapsedCategories !== this.props.collapsedCategories;
     const heightChanged =
       (prevProps.style && prevProps.style.height) !== (this.props.style && this.props.style.height);
@@ -627,6 +635,33 @@ class Explorer extends Component {
       window.requestAnimationFrame(() => this.fitExpandedSectionHeights());
     }
   }
+
+  // First time we see a non-code section, start it collapsed (code stays open).
+  collapseNewNonCodeSections = () => {
+    if (!this.props.explorerCollapseSections) {
+      return;
+    }
+    const sectionNodes = this.getOrderedSectionNodes();
+    if (sectionNodes.length === 0) {
+      return;
+    }
+
+    const collapsed = this.props.collapsedCategories;
+    const toCollapse = [];
+    sectionNodes.forEach((node) => {
+      if (this.seenSectionUrls.has(node.url)) {
+        return;
+      }
+      this.seenSectionUrls.add(node.url);
+      if (node.name !== 'code' && !(collapsed && collapsed.has(node.url))) {
+        toCollapse.push(node.url);
+      }
+    });
+
+    if (toCollapse.length > 0) {
+      this.props.explorerCollapseSections(toCollapse);
+    }
+  };
 
   getOrderedSectionNodes = () => {
     const dustNode = (this.props.data || []).find((n) => n.name === USER_DATA_PATH);

@@ -7,9 +7,11 @@ import {
   TOGGLE_CATEGORY,
   REORDER_SECTIONS,
   SET_SECTION_HEIGHTS,
+  COLLAPSE_SECTIONS,
   DEFAULT_SECTION_ORDER,
 } from './ui-actions';
 import { SIDEBAR_COMPONENT, REPL_COMPONENT, CONFIG_COMPONENT } from '../constants';
+import { DUST_AUDIO_RESOURCE, DUST_DATA_RESOURCE } from '../api';
 
 /*
 
@@ -30,7 +32,8 @@ const initialState = {
   replMinHeight: 100,
   editorMinHeight: 100,
   configHidden: true,
-  collapsedCategories: new Set(),
+  // code starts expanded; audio/data (and any later non-code sections) start collapsed
+  collapsedCategories: new Set([DUST_AUDIO_RESOURCE, DUST_DATA_RESOURCE]),
   sectionOrder: DEFAULT_SECTION_ORDER.slice(),
   sectionHeights: {},
 };
@@ -101,6 +104,17 @@ const ui = (state = initialState, action) => {
           ...(action.heights || {}),
         },
       };
+
+    case COLLAPSE_SECTIONS: {
+      let next = state.collapsedCategories;
+      (action.urls || []).forEach((url) => {
+        next = next.add(url);
+      });
+      if (next === state.collapsedCategories) {
+        return state;
+      }
+      return { ...state, collapsedCategories: next };
+    }
 
     default:
       return state;
