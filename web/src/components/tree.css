@@ -4,21 +4,14 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 8px;
-  height: 8px;
-  margin-left: -8px;
-  margin-right: 3px;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
   line-height: 0;
 }
 
-.explorer-tree-toggle {
-  transition: transform 100ms ease;
-  transform: rotate(0deg);
-  transform-origin: 50% 50%;
-}
-
-.explorer-tree-toggle.toggled {
-  transform: rotate(90deg);
+.explorer-tree-chevron {
+  color: var(--neutral-medium-default);
 }
 
 .explorer-tree-subtree {

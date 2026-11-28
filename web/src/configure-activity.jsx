@@ -90,6 +90,14 @@ class ConfigureActivity extends Component {
               {this.renderEditorOption('minimap', true, 'on')}
             </div>
           </div>
+          <div className="configure-header">explorer</div>
+          <div className="configure-item">
+            <div className="configure-label">auto hide sections:</div>
+            <div className="configure-options">
+              {this.renderEditorOption('autoHideSections', false, 'off')}
+              {this.renderEditorOption('autoHideSections', true, 'on')}
+            </div>
+          </div>
         </div>
         <div className="configure-lower">
           <div className="configure-about">

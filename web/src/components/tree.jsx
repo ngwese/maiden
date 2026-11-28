@@ -4,22 +4,49 @@ import './tree.css';
 
 const Loading = ({ style }) => <div style={style}>loading...</div>;
 
-const Toggle = ({ style }) => {
+// Lucide chevron-right / chevron-down (https://lucide.dev/icons/)
+const ChevronRight = ({ size }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ display: 'block' }}
+  >
+    <path d="m9 18 6-6-6-6" />
+  </svg>
+);
+
+const ChevronDown = ({ size }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ display: 'block' }}
+  >
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
+const Toggle = ({ style, toggled }) => {
   const { height, width } = style;
-  // Base inset so the triangle centroid sits at the SVG center; rotate(90deg)
-  // then keeps the open (down) state aligned with the label.
-  const baseX = (3 * (width / 2) - width) / 2; // => width/4 for square icons
-  const midHeight = height * 0.5;
-  const points = `${baseX},0 ${baseX},${height} ${width},${midHeight}`;
+  const size = Math.max(height || 12, width || 12);
 
   return (
-    <div style={style.base}>
-      <div style={style.wrapper}>
-        <svg height={height} width={width} style={{ display: 'block' }}>
-          <polygon points={points} style={style.arrow} />
-        </svg>
-      </div>
-    </div>
+    <span style={style.base} className="explorer-tree-chevron">
+      {toggled ? <ChevronDown size={size} /> : <ChevronRight size={size} />}
+    </span>
   );
 };
 
@@ -34,7 +61,6 @@ class Container extends Component {
     const { style, decorators, terminal, onClick, node } = this.props;
     const ToggleDecorator = decorators.Toggle;
     const HeaderDecorator = decorators.Header;
-    const toggleClass = node.toggled ? 'explorer-tree-toggle toggled' : 'explorer-tree-toggle';
     const rowStyle = {
       ...style.container,
       display: 'flex',
@@ -44,8 +70,8 @@ class Container extends Component {
     return (
       <div onClick={onClick} style={rowStyle} role="presentation">
         {!terminal ? (
-          <span className={toggleClass}>
-            <ToggleDecorator style={style.toggle} />
+          <span className="explorer-tree-toggle">
+            <ToggleDecorator style={style.toggle} toggled={!!node.toggled} />
           </span>
         ) : (
           <span className="explorer-tree-toggle-spacer" />

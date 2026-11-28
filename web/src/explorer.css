@@ -1,31 +1,84 @@
 .explorer {
-  /* background-color: #F9F9F9; */
   background-color: var(--neutral-background-default);
   font-family: monospace;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .explorer-header {
-  /* background-color: #979797; */
-  /* color: #e4e4e4; */
+  position: relative;
+  flex: 0 0 auto;
   padding: 6px 8px;
-  margin-bottom: 8px;
   height: 17px;
   display: flex;
   justify-content: space-between;
-
-  /* font-size: 110%; */
+  align-items: center;
   font-weight: bold;
   color: var(--neutral-medium-default);
   border-bottom: 1px solid var(--neutral-trim-default);
+  cursor: grab;
+}
+
+.explorer-header:active {
+  cursor: grabbing;
+}
+
+.explorer-section-resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 8px;
+  cursor: row-resize;
+  z-index: 2;
+}
+
+.explorer-section-resize:hover,
+.explorer-section.is-resizing .explorer-section-resize {
+  background-color: var(--neutral-trim-default);
 }
 
 .explorer-section {
-  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.explorer-section.is-expanded {
+  flex: 1 1 0;
+}
+
+.explorer-section.dragging {
+  opacity: 0.45;
+}
+
+.explorer-section.drag-over > .explorer-header,
+.explorer-header.drag-over {
+  border-bottom-color: var(--neutral-medium-default);
+  background-color: var(--neutral-surface-selected);
+}
+
+.explorer-section.is-resizing {
+  cursor: row-resize;
 }
 
 .explorer-section-tree {
-  overflow-y: overlay;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-left: 8px;
   overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.explorer-loose-tree {
+  flex: 0 1 auto;
+  max-height: 30%;
+  min-height: 0;
+  margin-bottom: 4px;
 }
 
 .explorer-tree {
@@ -33,6 +86,8 @@
 }
 
 .section-name {
+  text-transform: lowercase;
+  font-weight: bold;
   -webkit-user-select: none; /* Chrome all / Safari all */
   -moz-user-select: none; /* Firefox all */
   -ms-user-select: none; /* IE 10+ */

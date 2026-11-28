@@ -33,6 +33,8 @@ import {
   replToggle,
   replSize,
   toggleCategory,
+  reorderSections,
+  setSectionHeights,
 } from './model/ui-actions';
 
 import { replSend } from './model/repl-actions';
@@ -89,6 +91,8 @@ const mapStateToProps = (state) => {
     ui: state.ui,
     explorerData: getExplorerData(state.edit),
     collapsedCategories: state.ui.collapsedCategories,
+    sectionOrder: state.ui.sectionOrder,
+    sectionHeights: state.ui.sectionHeights,
     editorOptions: state.config.editor,
   };
 };
@@ -190,8 +194,14 @@ const mapDispatchToProps = (dispatch) => ({
   explorerDirectoryCreate: (resource, name, category) => {
     dispatch(directoryCreate(resource, name, category));
   },
-  explorerToggleCategory: (name) => {
-    dispatch(toggleCategory(name));
+  explorerToggleCategory: (name, options) => {
+    dispatch(toggleCategory(name, options));
+  },
+  explorerReorderSections: (order) => {
+    dispatch(reorderSections(order));
+  },
+  explorerSetSectionHeights: (heights) => {
+    dispatch(setSectionHeights(heights));
   },
 
   // editor

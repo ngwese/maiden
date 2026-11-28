@@ -6,37 +6,21 @@ export default {
       margin: 0,
       padding: 0,
       color: 'var(--neutral-medium-default)',
-      // overflow: 'scroll',
-      // height: '100%',
     },
     node: {
       base: {
         position: 'relative',
       },
-      // link: {
-      //     cursor: 'pointer',
-      //     position: 'relative',
-      //     padding: '0px 5px',
-      //     display: 'block'
-      // },
-      // activeLink: {
-      //     background: '#E0E7F1'
-      // },
-      container: {
-        marginLeft: '13px',
-      },
+      container: {},
       toggle: {
         base: {
           position: 'relative',
           display: 'block',
           lineHeight: 0,
+          color: 'var(--neutral-medium-default)',
         },
-        height: 8,
-        width: 8,
-        arrow: {
-          fill: 'var(--neutral-medium-default)',
-          strokeWidth: 0,
-        },
+        height: 12,
+        width: 12,
       },
       header: {
         base: {

@@ -1,6 +1,14 @@
 import { Set } from 'immutable';
 
-import { SIDEBAR_SIZE, REPL_SIZE, TOGGLE_COMPONENT, TOGGLE_CATEGORY } from './ui-actions';
+import {
+  SIDEBAR_SIZE,
+  REPL_SIZE,
+  TOGGLE_COMPONENT,
+  TOGGLE_CATEGORY,
+  REORDER_SECTIONS,
+  SET_SECTION_HEIGHTS,
+  DEFAULT_SECTION_ORDER,
+} from './ui-actions';
 import { SIDEBAR_COMPONENT, REPL_COMPONENT, CONFIG_COMPONENT } from '../constants';
 
 /*
@@ -23,6 +31,8 @@ const initialState = {
   editorMinHeight: 100,
   configHidden: true,
   collapsedCategories: new Set(),
+  sectionOrder: DEFAULT_SECTION_ORDER.slice(),
+  sectionHeights: {},
 };
 
 const handleToggleComponent = (state, action) => {
@@ -42,15 +52,23 @@ const handleToggleComponent = (state, action) => {
 };
 
 const handleToggleCategory = (state, action) => {
-  let newCollapsedCategories;
+  const isCollapsed = state.collapsedCategories.has(action.name);
 
-  if (state.collapsedCategories.has(action.name)) {
-    newCollapsedCategories = state.collapsedCategories.delete(action.name);
-  } else {
-    newCollapsedCategories = state.collapsedCategories.add(action.name);
+  if (isCollapsed) {
+    // Expanding this section.
+    let next = state.collapsedCategories.delete(action.name);
+    if (action.exclusive) {
+      (action.sectionUrls || []).forEach((url) => {
+        if (url !== action.name) {
+          next = next.add(url);
+        }
+      });
+    }
+    return { ...state, collapsedCategories: next };
   }
 
-  return { ...state, collapsedCategories: newCollapsedCategories };
+  // Collapsing this section.
+  return { ...state, collapsedCategories: state.collapsedCategories.add(action.name) };
 };
 
 const ui = (state = initialState, action) => {
@@ -66,6 +84,23 @@ const ui = (state = initialState, action) => {
 
     case REPL_SIZE:
       return { ...state, replHeight: action.height };
+
+    case REORDER_SECTIONS:
+      return {
+        ...state,
+        sectionOrder: Array.isArray(action.order)
+          ? action.order.slice()
+          : DEFAULT_SECTION_ORDER.slice(),
+      };
+
+    case SET_SECTION_HEIGHTS:
+      return {
+        ...state,
+        sectionHeights: {
+          ...state.sectionHeights,
+          ...(action.heights || {}),
+        },
+      };
 
     default:
       return state;
