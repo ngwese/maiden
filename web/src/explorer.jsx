@@ -512,11 +512,12 @@ class Section extends Component {
         minHeight: MIN_SECTION_HEIGHT,
       };
     } else if (useFixedHeight) {
+      // flex-shrink so oversized stored heights cannot push later sections
+      // below the visible explorer area after collapse/expand.
       sectionStyle = {
         flexGrow: 0,
-        flexShrink: 0,
+        flexShrink: 1,
         flexBasis: `${storedHeight}px`,
-        height: `${storedHeight}px`,
         minHeight: MIN_SECTION_HEIGHT,
       };
     }
@@ -616,6 +617,91 @@ class Explorer extends Component {
     super(props);
     this.sectionRefs = {};
   }
+
+  componentDidUpdate(prevProps) {
+    const collapsedChanged = prevProps.collapsedCategories !== this.props.collapsedCategories;
+    const heightChanged =
+      (prevProps.style && prevProps.style.height) !== (this.props.style && this.props.style.height);
+    if (collapsedChanged || heightChanged) {
+      // Wait a frame so section refs reflect the new expanded/collapsed DOM.
+      window.requestAnimationFrame(() => this.fitExpandedSectionHeights());
+    }
+  }
+
+  getOrderedSectionNodes = () => {
+    const dustNode = (this.props.data || []).find((n) => n.name === USER_DATA_PATH);
+    const dustChildren = dustNode && dustNode.children ? dustNode.children : [];
+    return orderSections(
+      dustChildren.filter((n) => n.children !== undefined),
+      this.props.sectionOrder,
+    );
+  };
+
+  // Keep non-last fixed heights from exceeding the panel so the last section
+  // (and anything below) stays reachable after collapse/expand cycles.
+  fitExpandedSectionHeights = () => {
+    const explorer = this.explorer;
+    if (!explorer || !this.props.explorerSetSectionHeights) {
+      return;
+    }
+
+    const sectionNodes = this.getOrderedSectionNodes();
+    const collapsed = this.props.collapsedCategories;
+    const expanded = sectionNodes.filter((node) => !(collapsed && collapsed.has(node.url)));
+    if (expanded.length < 2) {
+      return;
+    }
+
+    let collapsedHeaders = 0;
+    sectionNodes.forEach((node) => {
+      if (!(collapsed && collapsed.has(node.url))) {
+        return;
+      }
+      const el = this.sectionRefs[node.name];
+      if (el) {
+        collapsedHeaders += el.getBoundingClientRect().height;
+      }
+    });
+
+    const nonLast = expanded.slice(0, -1);
+    const available = explorer.clientHeight - collapsedHeaders;
+    // Leave at least a minimum strip for the last expanded section.
+    const roomForNonLast = Math.max(0, available - MIN_SECTION_HEIGHT);
+    const stored = this.props.sectionHeights || {};
+
+    let sum = 0;
+    const measured = nonLast.map((node) => {
+      const el = this.sectionRefs[node.name];
+      const fallback = el ? Math.round(el.getBoundingClientRect().height) : MIN_SECTION_HEIGHT;
+      const height = Math.max(MIN_SECTION_HEIGHT, stored[node.name] || fallback);
+      sum += height;
+      return { name: node.name, height };
+    });
+
+    if (sum <= roomForNonLast) {
+      return;
+    }
+
+    const next = {};
+    let allocated = 0;
+    measured.forEach((item, index) => {
+      if (index === measured.length - 1) {
+        next[item.name] = Math.max(MIN_SECTION_HEIGHT, roomForNonLast - allocated);
+        return;
+      }
+      const scaled = Math.max(
+        MIN_SECTION_HEIGHT,
+        Math.floor((item.height / sum) * roomForNonLast),
+      );
+      next[item.name] = scaled;
+      allocated += scaled;
+    });
+
+    const changed = measured.some((item) => stored[item.name] !== next[item.name]);
+    if (changed) {
+      this.props.explorerSetSectionHeights(next);
+    }
+  };
 
   onLooseToggle = (node, toggled) => {
     if (node.children) {
